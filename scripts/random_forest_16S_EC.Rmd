@@ -18,7 +18,7 @@ library(randomForest)
 
 ### Load and format data
 # only need to run this once - can skip to the next chunk
-# Run in scinet
+# Run in scinet, except NRCS which required local computer
 ```{r}
 ### Hops.2018
 # we don't need the full phyloseq from before, so reimporting
@@ -138,9 +138,9 @@ saveRDS(hopsARS_ml, '/project/soil_micro_lab/micro_indicators/machine_learning/1
 
 ### NRCS
 # split NRCS data into two to keep R from crashing
-func1 <- readRDS("/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_NRCS/EC_metagenome_out/pred_metagenome_contrib1.RDS")
-func2 <- readRDS("/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_NRCS/EC_metagenome_out/pred_metagenome_contrib2.RDS")
-df <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+func1 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib1.RDS")
+func2 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib2.RDS")
+df <- read.delim('picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
 
 names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
 
@@ -150,8 +150,15 @@ func1 <- func1 %>%
 func2 <- func2 %>%
   full_join(df, by="taxon")
 
+# read in qPCR data from local env instead of scinet
+qPCR_data <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
 # add qPCR data to new func object
+# clear unused R memory here
 func1 <- merge(func1, qPCR_data, by = "sample")
+# clear unused R memory again
 func2 <- merge(func2, qPCR_data, by = "sample")
 
 # we imported un-normalized counts, so normalizing here
@@ -196,17 +203,30 @@ otu1 <- tibble::rownames_to_column(otu1, "SampleID")
 otu2 <- tibble::rownames_to_column(otu2, "SampleID")
 
 # merge metadata and "otu" table
+# reread in data.merged from local drive
+data.pred.SHMI <- readRDS('metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
 NRCS1 <- merge(data.merged, otu1, by = "SampleID")
 NRCS1 <- as.data.frame(NRCS1)
 NRCS2 <- merge(data.merged, otu2, by = "SampleID")
 NRCS2 <- as.data.frame(NRCS2)
 
 # select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
-NRCS1_ml <- NRCS1[,c(1,95,152:2530)]
-NRCS2_ml <- NRCS2[,c(1,95,152:2468)]
+NRCS1_ml <- NRCS1[,c(1,95,152:2534)]
+NRCS2_ml <- NRCS2[,c(1,95,152:2472)]
 
-saveRDS(NRCS1_ml, "machine_learning/NRCS1_ml_EC.RDS")
-saveRDS(NRCS2_ml, "machine_learning/NRCS2_ml_EC.RDS")
+saveRDS(NRCS1_ml, "machine_learning/16S_EC/NRCS1_ml_EC.RDS")
+saveRDS(NRCS2_ml, "machine_learning/16S_EC/NRCS2_ml_EC.RDS")
 
 ### Rangeland
 # we don't need the full phyloseq from before, so reimporting
