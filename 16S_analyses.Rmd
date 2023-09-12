@@ -1,0 +1,1582 @@
+---
+title: "16S_picrust2_seq_data"
+title: "16S_Rangeland"
+author: "Heather Deel"
+date: "2023-06-13"
+output: html_document
+---
+
+### TO DO:
+- next steps - RF? SEM? Joint species?
+- Import and normalize sequencing data
+- Follow same next steps as with picrust2 data
+- For both enzyme data and seq data, overall goal is to see what predicts SEMWISE and/or SHMI well
+
+### Description:
+- Analyses of 16S PICRUSt2 and 16S sequencing data
+- PICRUSt2 was run using picrust2_files/picrust2_SHAI_script in Scinet
+
+### R setup
+
+1.  Change python environment as needed
+```{r setup, include=FALSE}
+# only running most of this once
+
+# # Install and load necessary packages
+# # you may need permission to folders in .libPaths()
+# 
+# # install cran packages as needed
+.cran_packages <- c("dplyr", "readxl", "tidyverse", "nlme", "meconetcomp", "magrittr", "igraph", "aplot", "agricolae","WGCNA")
+# .cran_packages <- c("dplyr", "readxl", "tidyverse", "nlme")
+# new.packages <- .cran_packages[!(.cran_packages %in% installed.packages()[,"Package"])]
+# if(length(new.packages)) install.packages(new.packages, dependencies=TRUE, INSTALL_opts = c('--no-lock'))
+# 
+# # install BiocManager as needed 
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install(version = "3.17")
+# 
+# # install Bioconductor packages as needed
+.bioc_packages <- c("phyloseq", "file2meco", "microeco", "mecodev", "metagMisc")
+# .bioc_packages <- c("phyloseq")
+# new.packages <- .bioc_packages[!(.bioc_packages %in% installed.packages()[,'Package'])]
+# if (length(new.packages)) BiocManager::install(new.packages)
+# 
+# load all packages
+sapply(c(.cran_packages, .bioc_packages), require, character.only=TRUE)
+```
+
+### Import PICRUSt2 data - creating phyloseq objects of EC data
+# only need to run this once - can skip to next chunk
+```{r}
+# keeping picrust2 import files outside of the Rproj because they're too big for github repo
+# currently, there are copies of previous picrust2 objects in the import files folder just in case, but will delete once further in analyses
+# saving the picrust2 objects inside the project for future use if needed
+
+### Hops.2018 data
+func <- read.delim('../picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Hops.2018.GIBBs.EC.phyloseq.RDS')
+
+### Hops.ARS
+func <- read.delim('../picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Hops.ARS.GIBBs.EC.phyloseq.RDS')
+
+### NRCS
+func <- read.delim('../picrust2_files/NRCS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/NRCS.GIBBs.EC.phyloseq.RDS')
+
+### OR.PMC
+func <- read.delim('../picrust2_files/OR.PMC/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/OR.PMC/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/OR.PMC.GIBBs.EC.phyloseq.RDS')
+
+### Rangeland
+func <- read.delim('../picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Rangeland.GIBBs.EC.phyloseq.RDS')
+
+### reimport all phyloseq objects, merge, and save
+phy_obj1 <- readRDS('picrust2_objects/Hops.2018.GIBBs.EC.phyloseq.RDS')
+phy_obj2 <- readRDS('picrust2_objects/Hops.ARS.GIBBs.EC.phyloseq.RDS')
+phy_obj3 <- readRDS('picrust2_objects/NRCS.GIBBs.EC.phyloseq.RDS')
+phy_obj4 <- readRDS('picrust2_objects/OR.PMC.GIBBs.EC.phyloseq.RDS')
+phy_obj5 <- readRDS('picrust2_objects/Rangeland.GIBBs.EC.phyloseq.RDS')
+
+phy_obj_all <- merge_phyloseq(phy_obj1, phy_obj2, phy_obj3, phy_obj4, phy_obj5)
+saveRDS(phy_obj_all, 'picrust2_objects/All.GIBBs.EC.phyloseq.RDS')
+```
+
+### Get metadata into EC phyloseq object
+# Only need to run once - can skip to next chunk
+```{r}
+# reimport phyloseq object
+phy_obj_all <- readRDS('picrust2_objects/All.GIBBs.EC.phyloseq.RDS')
+
+# copied data.pred.SHMI from SEMWISE paper
+data.pred.SHMI <- readRDS('metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+# created a reduced version just for importing the sampleID since columns are duplicated
+data.sampleID <- read.delim('metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# make the row names the sample names
+data.merged2 <- sample_data(data.merged[,-1])
+sample_names(data.merged2) <- data.merged$SampleID
+
+# add metadata to phyloseq object
+phy_obj_all_sam <- merge_phyloseq(phy_obj_all, data.merged2)
+
+# save object
+saveRDS(phy_obj_all_sam, 'picrust2_objects/All.SAM.GIBBs.EC.phyloseq.RDS')
+```
+
+### Network analysis of EC data
+# Tutorial here: https://chiliubio.github.io/microeco_tutorial/meconetcomp-package.html
+```{r}
+# reimport phyloseq object
+phy_obj_all_sam <- readRDS('picrust2_objects/All.SAM.GIBBs.EC.phyloseq.RDS')
+
+# transform phyloseq object to microeco object
+meco_obj <- phyloseq2meco(phy_obj_all_sam)
+
+# create a list of networks - start with SH_bin (very low, low, medium, high, very high)
+sh_networks <- list()
+
+# use clone to get a copy of the micro_eco object
+tmp <- clone(meco_obj)
+
+# change the sample table directly, select samples in the "very low" group
+tmp$sample_table %<>% subset(SH_bin == "very low")
+
+# trim all files in the object
+tmp$tidy_dataset()
+
+# use filter_thres parameter to filter the feature with low relative abundance
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+
+# COR_p_thres represents the p value threshold
+# COR_cut denotes the correlation coefficient threshold
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+
+# put the network into the list
+sh_networks$very_low <- tmp
+
+# select samples of "low" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "low")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$low <- tmp
+
+# select samples of "medium" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "medium")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$medium <- tmp
+
+# select samples of "high" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "high")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$high <- tmp
+
+# select samples of "very high" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "very high")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$very_high <- tmp
+
+# Now we have the list sh_networks
+# Can do analyses on the networks
+
+# Compare nodes across networks
+# obtain the node distributions by searching the res_node_table in the object
+tmp <- node_comp(sh_networks, property = "name")
+# obtain nodes intersection
+tmp1 <- trans_venn$new(tmp, ratio = "numratio")
+g1 <- tmp1$plot_venn(fill_color = FALSE)
+ggsave("figures/sh_ec_node_overlap.pdf", g1, width = 7, height = 6)
+# calculate jaccard distance to reflect the overall differences of networks
+tmp$cal_betadiv(method = "jaccard")
+tmp$beta_diversity$jaccard
+
+# doesn't seem like there is much of a different between the SH bins. Node overlap is high and beta div distance is low
+
+# Compare edges across networks
+# get the edge distributions across networks
+tmp <- edge_comp(sh_networks)
+# obtain edges intersection
+tmp1 <- trans_venn$new(tmp, ratio = "numratio")
+g1 <- tmp1$plot_venn(fill_color = FALSE)
+ggsave("figures/sh_ec_edge_overlap.pdf", g1, width = 7, height = 6)
+
+# there seems to be a signal in edge overlap - what does this mean?
+
+# Network modularity for all networks
+net_mod <- cal_module(sh_networks, undirected_method = "cluster_fast_greedy")
+# How do I view this?
+
+# correlation-based network
+t1 <- trans_network$new(dataset = meco_obj, cor_method = "spearman", use_WGCNA_pearson_spearman = TRUE, filter_thres = 0.0001)
+
+# construct network; require igraph package
+t1$cal_network(COR_p_thres = 0.01, COR_optimization = TRUE)
+
+# parition modules for the network
+# invoke igraph cluster_fast_greedy function for this undirected network 
+t1$cal_module(method = "cluster_fast_greedy")
+
+# save the network and view in Gephi (https://gephi.org/)
+t1$save_network(filepath = "network_analyses/network_ec.gexf")
+# need to do some playing around with this, getting a good network isn't super intuitive
+
+# calculate network attributes
+t1$cal_network_attr()
+t1$res_network_attr
+
+# get node properties
+t1$get_node_table(node_roles = TRUE)
+# return t1$res_node_table
+```
+
+### Diversity of EC data using microeco - soil health
+```{r}
+# wanted to use phyloseq but having issues (see below), so just trying this with microeco 
+# measuring each metric individually, can't do all at once because some require a phylogenetic tree
+# going to normalize by CSS first
+
+t1 <- trans_norm$new(dataset = meco_obj)
+meco_obj_css <- t1$norm(method = "CCS")
+
+# shannon
+meco_obj_css$cal_alphadiv(measures = "Shannon")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+
+# test the difference between groups with Kruskal Wallis Dunn, does multiple comparisons. There are quite a few statistical options here though, so not restricted to this one. E.g., can do a two-way anova and specify a formula
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+
+# plot
+g2 <- t1$plot_alpha(measure = "Shannon", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g2
+ggsave("figures/sh_ec_alpha_shannon.pdf", g2, width = 7, height = 6)
+
+# simpson
+meco_obj_css$cal_alphadiv(measures = "Simpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g3 <- t1$plot_alpha(measure = "Simpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g3
+ggsave("figures/sh_ec_alpha_simpson.pdf", g3, width = 7, height = 6)
+
+# inv simpson
+meco_obj_css$cal_alphadiv(measures = "InvSimpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g4 <- t1$plot_alpha(measure = "InvSimpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g4
+ggsave("figures/sh_ec_alpha_invsimpson.pdf", g4, width = 7, height = 6)
+
+# moving onto beta div
+# bray curtis
+meco_obj_css$cal_betadiv(method = "bray")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "SH_bin", measure = "bray")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g5 <- t1$plot_ordination(plot_color = "SH_bin", plot_type = c("point","ellipse"))
+g5
+ggsave("figures/sh_ec_beta_bray.pdf", g5, width = 7, height = 6)
+# not much of a signal by soil health bin
+
+# cluster plot of bray cutris distances
+t1$plot_clustering(group = "SH_bin")
+# looks pretty bad so won't save this one, but there isn't much distinct groupings
+
+# jaccard
+meco_obj_css$cal_betadiv(method = "jaccard")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "SH_bin", measure = "jaccard")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g6 <- t1$plot_ordination(plot_color = "SH_bin", plot_type = c("point","ellipse"))
+g6
+ggsave("figures/sh_ec_beta_jaccard.pdf", g6, width = 7, height = 6)
+
+# cluster plot of jaccard distances
+t1$plot_clustering(group = "SH_bin")
+# again, groupings aren't very distinct
+
+# want to do a composition table of EC numbers, but need something to import as my "tax table" of EC numbers. There is one for MetaCyc (data("MetaCyc_pathway_map")) and Kegg (data("Tax4Fun2_KEGG"))
+# EC numbers and KO numbers are linked - maybe it makes sense to just go with KO? will try that next
+
+```
+
+### Diversity of EC data using microeco - tillage type
+```{r}
+t1 <- trans_norm$new(dataset = meco_obj)
+meco_obj_css <- t1$norm(method = "CCS")
+
+# shannon
+meco_obj_css$cal_alphadiv(measures = "Shannon")
+
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+
+# test the difference between groups with Kruskal Wallis Dunn, does multiple comparisons. There are quite a few statistical options here though, so not restricted to this one. E.g., can do a two-way anova and specify a formula
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+
+# plot
+g2 <- t1$plot_alpha(measure = "Shannon", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g2
+ggsave("figures/till_ec_alpha_shannon.pdf", g2, width = 7, height = 6)
+
+# simpson
+meco_obj_css$cal_alphadiv(measures = "Simpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g3 <- t1$plot_alpha(measure = "Simpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g3
+ggsave("figures/till_ec_alpha_simpson.pdf", g3, width = 7, height = 6)
+
+# inv simpson
+meco_obj_css$cal_alphadiv(measures = "InvSimpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g4 <- t1$plot_alpha(measure = "InvSimpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g4
+ggsave("figures/till_ec_alpha_invsimpson.pdf", g4, width = 7, height = 6)
+
+# moving onto beta div
+# bray curtis
+meco_obj_css$cal_betadiv(method = "bray")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "Tillage_Type", measure = "bray")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g5 <- t1$plot_ordination(plot_color = "Tillage_Type", plot_type = c("point","ellipse"))
+g5
+ggsave("figures/till_ec_beta_bray.pdf", g5, width = 7, height = 6)
+
+# jaccard
+meco_obj_css$cal_betadiv(method = "jaccard")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "Tillage_Type", measure = "jaccard")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g6 <- t1$plot_ordination(plot_color = "Tillage_Type", plot_type = c("point","ellipse"))
+g6
+ggsave("figures/till_ec_beta_jaccard.pdf", g6, width = 7, height = 6)
+```
+
+### Import PICRUSt2 data - creating phyloseq objects of KO data
+# only need to run once - can skip to next chunk
+```{r}
+### Hops.2018 data
+func <- read.delim('../picrust2_files/Hops.2018/KO/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "KO"
+colnames(func)[2] <- "KO"
+
+# in KO column values, changing "K" to "ko" for tax_table purposes later
+func$KO <- sub('K','ko', func$KO)
+
+# pool data by function
+tax <- func %>%
+  group_by(KO) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$KO
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, KO) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$KO
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Hops.2018.GIBBs.KO.phyloseq.RDS')
+
+### Hops.ARS data
+func <- read.delim('../picrust2_files/Hops.ARS/KO/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "KO"
+colnames(func)[2] <- "KO"
+
+# in KO column values, changing "K" to "ko" for tax_table purposes later
+func$KO <- sub('K','ko', func$KO)
+
+# pool data by function
+tax <- func %>%
+  group_by(KO) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$KO
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, KO) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$KO
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Hops.ARS.GIBBs.KO.phyloseq.RDS')
+
+### NRCS data
+func <- read.delim('../picrust2_files/NRCS/KO/pred_metagenome_contrib.tsv.gz', sep='\t')
+
+# saving func object here, keep running out of memory so trying this instead
+saveRDS(func, '../picrust2_files/NRCS/KO/pred_metagenome_contrib.RDS')
+
+# exit R, reopen, and re-read in object here:
+phy_obj_NRCS <- readRDS('../picrust2_files/NRCS/KO/pred_metagenome_contrib.RDS')
+
+df <- read.delim('../picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# change name back to func and get rid of original object to save memory
+func <- phy_obj_NRCS
+rm(phy_obj_NRCS)
+
+# under gb usage, click "Free unused R memory"
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "KO"
+colnames(func)[2] <- "KO"
+
+# in KO column values, changing "K" to "ko" for tax_table purposes later
+func$KO <- sub('K','ko', func$KO)
+
+# pool data by function
+tax <- func %>%
+  group_by(KO) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$KO
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, KO) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$KO
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/NRCS.GIBBs.KO.phyloseq.RDS')
+
+### OR.PMC data
+func <- read.delim('../picrust2_files/OR.PMC/KO/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/OR.PMC/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "KO"
+colnames(func)[2] <- "KO"
+
+# in KO column values, changing "K" to "ko" for tax_table purposes later
+func$KO <- sub('K','ko', func$KO)
+
+# pool data by function
+tax <- func %>%
+  group_by(KO) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$KO
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, KO) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$KO
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/OR.PMC.GIBBs.KO.phyloseq.RDS')
+
+### Rangeland data
+func <- read.delim('../picrust2_files/Rangeland/KO/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "KO"
+colnames(func)[2] <- "KO"
+
+# in KO column values, changing "K" to "ko" for tax_table purposes later
+func$KO <- sub('K','ko', func$KO)
+
+# pool data by function
+tax <- func %>%
+  group_by(KO) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$KO
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, KO) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$KO
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(as.matrix(t(otu)), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_objects/Rangeland.GIBBs.KO.phyloseq.RDS')
+
+### reimport all phyloseq objects, merge, and save
+phy_obj1 <- readRDS('picrust2_objects/Hops.2018.GIBBs.KO.phyloseq.RDS')
+phy_obj2 <- readRDS('picrust2_objects/Hops.ARS.GIBBs.KO.phyloseq.RDS')
+phy_obj3 <- readRDS('picrust2_objects/NRCS.GIBBs.KO.phyloseq.RDS')
+phy_obj4 <- readRDS('picrust2_objects/OR.PMC.GIBBs.KO.phyloseq.RDS')
+phy_obj5 <- readRDS('picrust2_objects/Rangeland.GIBBs.KO.phyloseq.RDS')
+
+phy_obj_all <- merge_phyloseq(phy_obj1, phy_obj2, phy_obj3, phy_obj4, phy_obj5)
+saveRDS(phy_obj_all, 'picrust2_objects/All.GIBBs.KO.phyloseq.RDS')
+```
+
+### Get metadata into KO phyloseq object
+# Only need to run once - can skip to next chunk
+```{r}
+# reimport phyloseq object
+phy_obj_all <- readRDS('picrust2_objects/All.GIBBs.KO.phyloseq.RDS')
+
+# copied data.pred.SHMI from SEMWISE paper
+data.pred.SHMI <- readRDS('metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+# created a reduced version just for importing the sampleID since columns are duplicated
+data.sampleID <- read.delim('metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# make the row names the sample names
+data.merged2 <- sample_data(data.merged[,-1])
+sample_names(data.merged2) <- data.merged$SampleID
+
+# add metadata to phyloseq object
+phy_obj_all_sam <- merge_phyloseq(phy_obj_all, data.merged2)
+
+# save object
+saveRDS(phy_obj_all_sam, 'picrust2_objects/All.SAM.GIBBs.KO.phyloseq.RDS')
+```
+
+### Network analysis of KO data
+# Tutorial here: https://chiliubio.github.io/microeco_tutorial/meconetcomp-package.html
+```{r}
+# reimport phyloseq object
+phy_obj_all_sam <- readRDS('picrust2_objects/All.SAM.GIBBs.KO.phyloseq.RDS')
+
+# transform phyloseq object to microeco object
+meco_obj <- phyloseq2meco(phy_obj_all_sam)
+
+# create a list of networks - start with SH_bin (very low, low, medium, high, very high)
+sh_networks <- list()
+
+# use clone to get a copy of the micro_eco object
+tmp <- clone(meco_obj)
+
+# change the sample table directly, select samples in the "very low" group
+tmp$sample_table %<>% subset(SH_bin == "very low")
+
+# trim all files in the object
+tmp$tidy_dataset()
+
+# use filter_thres parameter to filter the feature with low relative abundance
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+
+# COR_p_thres represents the p value threshold
+# COR_cut denotes the correlation coefficient threshold
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+
+# put the network into the list
+sh_networks$very_low <- tmp
+
+# select samples of "low" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "low")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$low <- tmp
+
+# select samples of "medium" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "medium")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$medium <- tmp
+
+# select samples of "high" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "high")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$high <- tmp
+
+# select samples of "very high" group
+tmp <- clone(meco_obj)
+tmp$sample_table %<>% subset(SH_bin == "very high")
+tmp$tidy_dataset()
+tmp <- trans_network$new(dataset = tmp, cor_method = "spearman", filter_thres = 0.0005)
+tmp$cal_network(COR_p_thres = 0.01, COR_cut = 0.6)
+sh_networks$very_high <- tmp
+
+# Now we have the list sh_networks
+# Can do analyses on the networks
+
+# Compare nodes across networks
+# obtain the node distributions by searching the res_node_table in the object
+tmp <- node_comp(sh_networks, property = "name")
+# obtain nodes intersection
+tmp1 <- trans_venn$new(tmp, ratio = "numratio")
+g1 <- tmp1$plot_venn(fill_color = FALSE)
+ggsave("figures/sh_ko_node_overlap.pdf", g1, width = 7, height = 6)
+# calculate jaccard distance to reflect the overall differences of networks
+tmp$cal_betadiv(method = "jaccard")
+tmp$beta_diversity$jaccard
+
+# Compare edges across networks
+# get the edge distributions across networks
+tmp <- edge_comp(sh_networks)
+# obtain edges intersection
+tmp1 <- trans_venn$new(tmp, ratio = "numratio")
+g1 <- tmp1$plot_venn(fill_color = FALSE)
+ggsave("figures/sh_ko_edge_overlap.pdf", g1, width = 7, height = 6)
+
+# Network modularity for all networks
+net_mod <- cal_module(sh_networks, undirected_method = "cluster_fast_greedy")
+# How do I view this?
+
+# correlation-based network
+t1 <- trans_network$new(dataset = meco_obj, cor_method = "spearman", use_WGCNA_pearson_spearman = TRUE, filter_thres = 0.0001)
+
+# construct network; require igraph package
+t1$cal_network(COR_p_thres = 0.01, COR_optimization = TRUE)
+
+# parition modules for the network
+# invoke igraph cluster_fast_greedy function for this undirected network 
+t1$cal_module(method = "cluster_fast_greedy")
+
+# save the network and view in Gephi (https://gephi.org/)
+t1$save_network(filepath = "network_analyses/network_ko.gexf")
+# need to do some playing around with this, getting a good network isn't super intuitive
+
+# calculate network attributes
+t1$cal_network_attr()
+t1$res_network_attr
+
+# get node properties
+t1$get_node_table(node_roles = TRUE)
+# return t1$res_node_table
+```
+
+### Diversity of KO data using microeco - soil health
+```{r}
+t1 <- trans_norm$new(dataset = meco_obj)
+meco_obj_css <- t1$norm(method = "CCS")
+
+# shannon
+meco_obj_css$cal_alphadiv(measures = "Shannon")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+
+# test the difference between groups with Kruskal Wallis Dunn, does multiple comparisons. There are quite a few statistical options here though, so not restricted to this one. E.g., can do a two-way anova and specify a formula
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+
+# plot
+g2 <- t1$plot_alpha(measure = "Shannon", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g2
+ggsave("figures/sh_ko_alpha_shannon.pdf", g2, width = 7, height = 6)
+
+# simpson
+meco_obj_css$cal_alphadiv(measures = "Simpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g3 <- t1$plot_alpha(measure = "Simpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g3
+ggsave("figures/sh_ko_alpha_simpson.pdf", g3, width = 7, height = 6)
+
+# inv simpson
+meco_obj_css$cal_alphadiv(measures = "InvSimpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "SH_bin")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g4 <- t1$plot_alpha(measure = "InvSimpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter")
+g4
+ggsave("figures/sh_ko_alpha_invsimpson.pdf", g4, width = 7, height = 6)
+
+# moving onto beta div
+# bray curtis
+meco_obj_css$cal_betadiv(method = "bray")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "SH_bin", measure = "bray")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g5 <- t1$plot_ordination(plot_color = "SH_bin", plot_type = c("point","ellipse"))
+g5
+ggsave("figures/sh_ko_beta_bray.pdf", g5, width = 7, height = 6)
+# not much of a signal by soil health bin with ko either
+
+# cluster plot of bray cutris distances
+t1$plot_clustering(group = "SH_bin")
+# looks pretty bad so won't save this one, but there isn't much distinct groupings
+
+# jaccard
+meco_obj_css$cal_betadiv(method = "jaccard")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "SH_bin", measure = "jaccard")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g6 <- t1$plot_ordination(plot_color = "SH_bin", plot_type = c("point","ellipse"))
+g6
+ggsave("figures/sh_ko_beta_jaccard.pdf", g6, width = 7, height = 6)
+# there is a signal by something here - two clusters
+
+# cluster plot of jaccard distances
+t1$plot_clustering(group = "SH_bin")
+# again, groupings aren't very distinct
+
+# want to do a composition table of EC numbers, but need something to import as my "tax table" of EC numbers. There is one for MetaCyc (data("MetaCyc_pathway_map")) and Kegg (data("Tax4Fun2_KEGG"))
+# EC numbers and KO numbers are linked - maybe it makes sense to just go with KO? will try that next
+
+```
+
+### Diversity of KO data using microeco - tillage type
+```{r}
+t1 <- trans_norm$new(dataset = meco_obj)
+meco_obj_css <- t1$norm(method = "CCS")
+
+# shannon
+meco_obj_css$cal_alphadiv(measures = "Shannon")
+
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+
+# test the difference between groups with Kruskal Wallis Dunn, does multiple comparisons. There are quite a few statistical options here though, so not restricted to this one. E.g., can do a two-way anova and specify a formula
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+
+# plot
+g2 <- t1$plot_alpha(measure = "Shannon", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g2
+ggsave("figures/till_ko_alpha_shannon.pdf", g2, width = 7, height = 6)
+
+# simpson
+meco_obj_css$cal_alphadiv(measures = "Simpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g3 <- t1$plot_alpha(measure = "Simpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g3
+ggsave("figures/till_ko_alpha_simpson.pdf", g3, width = 7, height = 6)
+
+# inv simpson
+meco_obj_css$cal_alphadiv(measures = "InvSimpson")
+t1 <- trans_alpha$new(dataset = meco_obj_css, group = "Tillage_Type")
+head(t1$data_stat)
+t1$cal_diff(method = "KW_dunn")
+head(t1$res_diff)
+g4 <- t1$plot_alpha(measure = "InvSimpson", y_increase = 0.3, add_sig_text_size = 6, 
+              boxplot_add = "jitter", xtext_angle = 45)
+g4
+ggsave("figures/till_ko_alpha_invsimpson.pdf", g4, width = 7, height = 6)
+
+# moving onto beta div
+# bray curtis
+meco_obj_css$cal_betadiv(method = "bray")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "Tillage_Type", measure = "bray")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g5 <- t1$plot_ordination(plot_color = "Tillage_Type", plot_type = c("point","ellipse"))
+g5
+ggsave("figures/till_ko_beta_bray.pdf", g5, width = 7, height = 6)
+
+# jaccard
+meco_obj_css$cal_betadiv(method = "jaccard")
+t1 <- trans_beta$new(dataset = meco_obj_css, group = "Tillage_Type", measure = "jaccard")
+t1$cal_ordination(ordination = "PCoA") #PCoA, PCA, NMDS available
+g6 <- t1$plot_ordination(plot_color = "Tillage_Type", plot_type = c("point","ellipse"))
+g6
+ggsave("figures/till_ko_beta_jaccard.pdf", g6, width = 7, height = 6)
+```
+
+### Compositional analysis with KO data
+```{r}
+# not sure if this will work but want to try to get another look at overarching functions
+# will try to use Tax4Fun2_KEGG as the taxa_table for compositional analysis of functional data
+data("Tax4Fun2_KEGG")
+
+# need to first create a df from the merged phyloseq object
+df_obj_all_sam <- phyloseq_to_df(phy_obj_all_sam)
+
+# formatting of otu table
+df_obj_all_sam <- df_obj_all_sam[,-2] # remove ko column - same as otu column
+df_obj_all_sam <- df_obj_all_sam[,-2] # then remove sum column
+
+# make otu names the row names
+df_obj_all_sam2 <- sample_data(df_obj_all_sam[,-1])
+sample_names(df_obj_all_sam2) <- df_obj_all_sam$OTU
+
+# make new meco obj, includes sample data
+tmp <- microtable$new(otu_table = df_obj_all_sam2, tax_table = Tax4Fun2_KEGG$ptw_desc, sample_table = data.merged2)
+
+# want to do a sort of "taxa" plot with this but it's requiring I specify rank which I don't have
+# "taxa_abund" in tmp object has functional abundance information per sample - how else can I look at this?
+t1 <- trans_abund$new(dataset = tmp, ntaxa = 10)
+
+
+########### you are here
+
+
+
+
+### Something like this might work (an example found but for MetaCyc)
+test <- humann2meco(abund_file_path, db = "MetaCyc", sample_table = sample_file_path, match_table = match_file_path)
+test$tidy_dataset()
+# rel = FALSE sum original abundance instead of relative abundance
+test$cal_abund(select_cols = 1:3, rel = FALSE)
+test$taxa_abund$Superclass1 %<>% .[!grepl("unclass", rownames(.)), ]
+# use_percentage = FALSE disable percentage for relative abundance
+test1 <- trans_abund$new(test, taxrank = "Superclass1", ntaxa = 10, use_percentage = FALSE)
+# reassign ylab title instead of default 'Relative Abundance'
+test1$ylabname <- "Abundance (RPK)"
+# bar_type = "notfull" show original abundance instead of normalized 0-1
+test1$plot_bar(facet = "Group", bar_type = "notfull")
+# select both function and taxa
+test$cal_abund(select_cols = c("Superclass1", "Phylum", "Genus"), rel = TRUE)
+test1 <- trans_abund$new(test, taxrank = "Phylum", ntaxa = 10, delete_part_prefix = T)
+test1$plot_bar(facet = "Group")
+# functional biomarker
+test$cal_abund(select_cols = 1:3, rel = TRUE)
+test$taxa_abund$Superclass1 %<>% .[!grepl("unclass", rownames(.)), ]
+test1 <- trans_diff$new(test, method = "lefse", group = "Group")
+test1$plot_diff_bar(use_number = 1:20)
+
+### Also found this lesser example but for KEGG
+abund_file_path <- system.file("extdata", "example_HUMAnN_KEGG_abund.tsv", package="file2meco")
+test <- humann2meco(abund_file_path, db = "KEGG", sample_table = sample_file_path, match_table = match_file_path)
+test$tax_table %<>% subset(Level.1 != "unclassified")
+test$tidy_dataset()
+```
+
+################################################################################
+############## Stuff that doesn't work or isn't done yet #######################
+################################################################################
+
+### Diversity analysis of EC data using phyloseq
+# Tutorial here: https://joey711.github.io/phyloseq/plot_richness-examples.html
+```{r}
+# how does diversity compare between network modules? Is there a diverse set of taxa contributing to certain functions? are there patterns in which diverse functions contribute to soil health?
+
+# use the phyloseq object
+
+theme_set(theme_bw())
+pal = "Set1"
+scale_colour_discrete <-  function(palname=pal, ...){
+  scale_colour_brewer(palette=palname, ...)
+}
+scale_fill_discrete <-  function(palname=pal, ...){
+  scale_fill_brewer(palette=palname, ...)
+}
+
+# prune functions
+phy_obj_all_sam2 = transform_sample_counts(phy_obj_all_sam, as.integer)
+sh <- prune_taxa(taxa_sums(phy_obj_all_sam) > 0, phy_obj_all_sam2)
+plot_richness(sh)
+
+# troubleshooting this - getting error that taxa/otu names do not match in phyloseq object. Tried making sure taxa/otu table were both matrices before making phyloseq object, tried converting all values to integers
+
+# tried getting unique characters between taxa_names and otu_table and it shows character(0) as if nothing is different
+setdiff(unique(taxa_names(phy_obj_all_sam)), unique(colnames(otu_table(phy_obj_all_sam))))
+
+# not sure what to troubleshoot next
+
+# out of curiosity, going to import Dan's phyloseq objects, merge, and see if I can do alpha div
+phy_obj1 <- readRDS('dan_files/Hops.2018.GIBBs.phyloseq.RDS')
+phy_obj2 <- readRDS('dan_files/Hops.ARS.GIBBs.phyloseq.RDS')
+phy_obj3 <- readRDS('dan_files/NRCS.GIBBs.phyloseq.RDS')
+phy_obj4 <- readRDS('dan_files/OR.PMC.GIBBs.phyloseq.RDS')
+phy_obj5 <- readRDS('dan_files/Rangeland.GIBBs.phyloseq.RDS')
+
+phy_obj_all_dan <- merge_phyloseq(phy_obj1, phy_obj2, phy_obj3, phy_obj4, phy_obj5)
+saveRDS(phy_obj_all_dan, 'dan_files/All.GIBBs.phyloseq.RDS')
+
+phy_obj_all_dan2 = transform_sample_counts(phy_obj_all_dan, as.integer)
+sh_dan <- prune_taxa(taxa_sums(phy_obj_all_dan2) > 0, phy_obj_all_dan2)
+plot_richness(sh_dan)
+
+# get the same error - why?
+# makes me think it doesn't have anything to do with the sample data, which I guess is good. Must be something to do with formatting of picrust data... 
+```
+
+### RF or Joint Species Distribution of EC data
+```{r}
+
+```
+
+### Import PICRUSt2 data - creating phyloseq objects of EC data
+# absolute counts
+# only need to run this once - can skip to next chunk
+# Hops.2018, Hops.ARS don't have qPCR counts
+# OR.PMC has qPCR counts for about 1/3 samples, most Rangeland samples have qPCR counts, NRCS has qPCR counts but too big for current merging code. Is it worth doing this if many samples don't have qPCR counts?
+# leaving this code here, but going to proceed with just rel abundance for now and can perhaps revisit this
+```{r}
+### Hops.2018 data
+func <- read.delim('picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get qPCR values into func
+qPCR <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+
+# this appears to join correctly, but also there are no qPCR values for these samples so everything is NA
+func <- merge(func, qPCR, by = "sample", all.x = TRUE)
+
+# we imported un-normalized counts, so normalizing here
+# same equation as before, but multiplying by qPCR
+func$gene_counts <- (func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count) * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_files/Hops.2018/Hops.2018.GIBBs.EC.phyloseq.RDS')
+
+### Hops.ARS
+func <- read.delim('picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get qPCR values into func
+qPCR <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+
+# this appears to join correctly, but also there are no qPCR values for these samples so everything is NA
+func <- merge(func, qPCR, by = "sample", all.x = TRUE)
+
+# we imported un-normalized counts, so normalizing here
+# same equation as before, but multiplying by qPCR
+func$gene_counts <- (func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count) * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_files/Hops.ARS/Hops.ARS.GIBBs.EC.phyloseq.RDS')
+
+### NRCS
+func <- read.delim('picrust2_files/NRCS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+qPCR <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+
+# this appears to join correctly, but also there are no qPCR values for these samples so everything is NA
+func <- merge(func, qPCR, by = "sample", all.x = TRUE)
+
+# we imported un-normalized counts, so normalizing here
+# same equation as before, but multiplying by qPCR
+func$gene_counts <- (func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count) * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_files/NRCS/NRCS.GIBBs.EC.phyloseq.RDS')
+
+### OR.PMC
+func <- read.delim('picrust2_files/OR.PMC/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/OR.PMC/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+qPCR <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+
+# this appears to join correctly, but also there are no qPCR values for these samples so everything is NA
+func <- merge(func, qPCR, by = "sample", all.x = TRUE)
+
+# we imported un-normalized counts, so normalizing here
+# same equation as before, but multiplying by qPCR
+func$gene_counts <- (func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count) * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_files/OR.PMC/OR.PMC.GIBBs.EC.phyloseq.RDS')
+
+### Rangeland
+func <- read.delim('picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+# df has the genome 16S count
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+qPCR <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+
+# this appears to join correctly, but also there are no qPCR values for these samples so everything is NA
+func <- merge(func, qPCR, by = "sample", all.x = TRUE)
+
+# we imported un-normalized counts, so normalizing here
+# same equation as before, but multiplying by qPCR
+func$gene_counts <- (func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count) * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by function
+tax <- func %>%
+  group_by(EC) %>% 
+  summarize(sum=sum(gene_counts))
+
+# create a formal taxonomy table
+TAX <- tax_table(as.matrix(tax))
+taxa_names(TAX) <- tax$EC
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# create a formal OTU table
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+# create phyloseq object
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, 'picrust2_files/Rangeland/Rangeland.GIBBs.EC.phyloseq.RDS')
+
+### reimport all phyloseq objects, merge, and save
+phy_obj1 <- readRDS('picrust2_files/Hops.2018/Hops.2018.GIBBs.EC.phyloseq.RDS')
+phy_obj2 <- readRDS('picrust2_files/Hops.ARS/Hops.ARS.GIBBs.EC.phyloseq.RDS')
+phy_obj3 <- readRDS('picrust2_files/NRCS/NRCS.GIBBs.EC.phyloseq.RDS')
+phy_obj4 <- readRDS('picrust2_files/OR.PMC/OR.PMC.GIBBs.EC.phyloseq.RDS')
+phy_obj5 <- readRDS('picrust2_files/Rangeland/Rangeland.GIBBs.EC.phyloseq.RDS')
+```
+
+### Import sequencing data
+```{r}
+# importing phyloseq object created in dan_files/SHAI_Data_Processing.Rmd
+# already normalized, so can go straight to analyses
+# "Count" object = non-normalized counts, "RelAbund" = relative abundance normalize, "Total" = relative abundance data that is qPCR corrected
+# They are all at the species level - if I need other levels, will go into SHAI_Data_Processing and create the phyloseq objects there, then import here
+
+# going to import RelAbund and Total objects
+
+phy_obj_16S_ra <- readRDS('dan_files/P.Soils.16S.species.RelAbund.RDS')
+phy_obj_16S_total <- readRDS('dan_files/P.Soils.16S.species.Total.RDS')
+
+phy_obj_16S_ra
+phy_obj_16S_total
+
+```
+
+### Adding more sample data to phyloseq sequencing objects
+```{r}
+# just want to get things working first, but eventually will need to add SEMWISE, SHMI, updated metadata like tillage type, climate zone, etc - the sample data attached to these samples is likely a little old
+```
+
+### Diversity between relative abundance and total abundance
+```{r}
+theme_set(theme_bw())
+pal = "Set1"
+scale_colour_discrete <-  function(palname=pal, ...){
+  scale_colour_brewer(palette=palname, ...)
+}
+scale_fill_discrete <-  function(palname=pal, ...){
+  scale_fill_brewer(palette=palname, ...)
+}
+
+ra_16S <- prune_taxa(taxa_sums(phy_obj_16S_ra) > 0, phy_obj_16S_ra)
+ra_16S2 <- transform_sample_counts(ra_16S, as.integer)
+plot_richness(ra_16S)
+
+# get errors and warnings...
+# Error in h(simpleError(msg, call)) : error in evaluating the argument 'x' in selecting a method for function 't': function accepts only integers (counts)
+# Warning: The data you have provided does not have any singletons. This is highly suspicious. Results of richness estimates (for example) are probably unreliable, or wrong, if you have already trimmed low-abundance taxa from the data. We recommended that you find the un-trimmed data and retry.
+# then tried the same thing as above by transforming to integer, and still get that taxa/otu names don't match - wth is going on??
+
+setdiff(unique(taxa_names(phy_obj_16S_ra)), unique(colnames(otu_table(phy_obj_16S_ra))))
+# still get character(0) - so there is nothing unique between the two... 
+row.names(otu) <- otu$function.
+otu <- otu[,-1]
+otu[is.na(otu)] <- 0
+
+OTU <- otu_table(t(otu), taxa_are_rows=F)
+sample_names(OTU) <- gsub("X", "", sample_names(OTU))
+
+phy_obj <- phyloseq(OTU, TAX)
+saveRDS(phy_obj, paste0(params$proj_dir, '/', params$proj_name, '.GIBBs.phyloseq.RDS'))
+```
+
+### Import sequencing data and wrangle into a phyloseq
+
+```{r}
+
+```
+
+### Network analyses on sequencing data
+
+```{r}
+# what is a good way to connect this with PICRUSt2 network analyses?
+```
+
+
+
+
+
+
+
+
+
