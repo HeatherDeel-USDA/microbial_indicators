@@ -1,0 +1,23 @@
+---
+title: "Machine Learning Graphing"
+author: "Heather Deel"
+date: "2023-09-18"
+output: html_document
+---
+
+### Libraries
+```{r}
+library(ggplot2)
+```
+
+### Data import
+```{r}
+
+```
+
+### Boxplots of 16S_EC R^2 values
+```{r}
+
+```
+
+
