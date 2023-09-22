@@ -86,6 +86,7 @@ hops2018_all <- as.data.frame(hops2018_all)
 hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
 
 saveRDS(hops2018_ml, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
+hops2018_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
 
 ### Hops.ARS
 # we don't need the full phyloseq from before, so reimporting
@@ -135,6 +136,7 @@ hopsARS_all <- as.data.frame(hopsARS_all)
 hopsARS_ml <- hopsARS_all[,c(1,95,152:2413)]
 
 saveRDS(hopsARS_ml, '/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hopsARS_ml_EC.RDS')
+hopsARS_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hopsARS_ml_EC.RDS")
 
 ### NRCS
 # split NRCS data into two to keep R from crashing
@@ -228,11 +230,14 @@ NRCS2_ml <- NRCS2[,c(1,95,152:2472)]
 saveRDS(NRCS1_ml, "machine_learning/16S_EC/NRCS1_ml_EC.RDS")
 saveRDS(NRCS2_ml, "machine_learning/16S_EC/NRCS2_ml_EC.RDS")
 
+# read into scinet
+NRCS1_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/NRCS1_ml_EC.RDS")
+NRCS2_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/NRCS2_ml_EC.RDS")
+
 ### Rangeland
 # we don't need the full phyloseq from before, so reimporting
-func <- read.delim('../picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
-df <- read.delim('../picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
-
+func <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Rangeland/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
 names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
 
 # combine two files
@@ -275,7 +280,8 @@ rangeland_all <- as.data.frame(rangeland_all)
 # select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
 rangeland_ml <- rangeland_all[,c(1,95,152:2391)]
 
-saveRDS(rangeland_ml, "machine_learning/rangeland_ml_EC.RDS")
+saveRDS(rangeland_ml, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/rangeland_ml_EC.RDS")
+rangeland_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/rangeland_ml_EC.RDS")
 
 ### final formatting of ml_all object
 
@@ -290,14 +296,14 @@ ml_all <- merge(rangeland_ml, ml_3, all = TRUE)
 # change NAs to 0
 ml_all[is.na(ml_all)] <- 0
 
-# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 316
-ml_all <- ml_all[c(1:315,317:537),]
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+ml_all <- ml_all[c(1:314,316:537),]
 
 # make the sample names the row names again to make selecting columns for ml easy
 rownames(ml_all) <- ml_all$SampleID
 
 # get rid of sampleID column
-ml_all <- ml_all[,c(2:2444)]
+ml_all <- ml_all[,c(2:2448)]
 
 # check for any NAs in ml_all
 sum(is.na(ml_all))
@@ -306,7 +312,7 @@ sum(is.na(ml_all))
 # data is ready for ML
 
 # save ML object
-saveRDS(ml_all, "machine_learning/ml_all_EC.RDS")
+saveRDS(ml_all, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_all_EC.RDS")
 ```
 
 ### Predict overall CASH rating
@@ -316,110 +322,113 @@ saveRDS(ml_all, "machine_learning/ml_all_EC.RDS")
 # reload ML object
 ml_all <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_EC.RDS")
 
-soil_split <- initial_split(ml_all, prop = 4/5)
-soil_split
-# 428 samples in training, 108 in testing, 536 total
+set.seed(11)
 
-# extract the train and test sets
-soil_train <- training(soil_split)
-soil_test <- testing(soil_split)
-
-# cross validation
-soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
-
-# define a "recipe", i.e., the role of each variable in the model
-# predicting overall CASH rating, and all other variables (ECs) are predictors
-# if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
-
-soil_recipe <- recipe(Overall ~ ., data = ml_all)
-soil_recipe
-# 2442 predictors
-
-# specify the model
-# tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
-# set_args values = tune() when tuning
-# change set_args parameters to tuned grid values after tuning
-rf_model <- rand_forest() %>% 
-  set_args(mtry = 1834, trees = 500, min_n = 3) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
-
-# set the workflow
-rf_workflow <- workflow() %>%
-  add_recipe(soil_recipe) %>%
-  add_model(rf_model)
-
-# tune the parameters
-# comment out section between ########## when not tuning
-##########
-# doing 25%, 50%, and 75% of the total number of predictors, respectively
-#rf_grid <- expand.grid(mtry = c(611,1223,1834),
-#                       trees = c(100,250,500),
-#                       min_n = c(3,5,7))
-
-# extract results
-#rf_tune_results <- rf_workflow %>%
-#  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
-
-# save tune results
-#saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_CASH_tune_results.RDS")
-
-#rf_tune_results %>%
-#  collect_metrics()
-
-# finalize the workflow
-#param_final <- rf_tune_results %>%
-#  select_best(metric = "mae")
-#param_final
-
-#rf_workflow <- rf_workflow %>%
-#  finalize_workflow(param_final)
-##########
-
-# fit the model
-# this will fit on the training set and evaluate on test set
-rf_fit <- rf_workflow %>%
-  last_fit(soil_split)
-rf_fit
-
-# save the fit
-saveRDS(rf_fit, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_fit25.RDS")
-
-# see how well the model performs
-test_performance <- rf_fit %>% collect_metrics()
-test_performance
-
-# generate predictions from the test set
-test_predictions <- rf_fit %>% collect_predictions()
-test_predictions
-
-# graph a regression of predicted vs observed SH_rating values
-CASH_EC_lm <- lm(Overall ~ .pred, data = test_predictions)
-p1 <- ggplot(CASH_EC_lm$model, aes(x = Overall, y = .pred)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-  labs(title = paste("Adj R2 =",signif(summary(CASH_EC_lm)$adj.r.squared, 2),
-                     " P =",signif(summary(CASH_EC_lm)$coef[2,4], 2)),
-                     x = "Observed CASH Rating", y = "Predicted CASH Rating") +
-  theme_bw()
-p1
-
-# save plot
-ggsave("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_pred_vs_obs25.tiff", unit = "in", width = 6, height = 6, 
-       dpi = 300, device = "tiff")
-
-# fitting the final model
-# uses all data that can be tested on a new data set
-final_model <- fit(rf_workflow, ml_all)
-
-# save the final model
-saveRDS(final_model, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_final_model25.RDS")
-
-# variable importance
-ranger_obj <- pull_workflow_fit(final_model)$fit
-ranger_obj
-var_importance <- as.data.frame(ranger_obj$variable.importance)
-write.csv(var_importance, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/var_importance_EC25.csv", row.names = TRUE)
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting overall CASH rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(Overall ~ ., data = ml_all)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_CASH_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  CASH_EC_lm <- lm(Overall ~ .pred, data = test_predictions)
+  p1 <- ggplot(CASH_EC_lm$model, aes(x = Overall, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(CASH_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(CASH_EC_lm)$coef[2,4], 2)),
+                       x = "Observed CASH Rating", y = "Predicted CASH Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/CASH_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
 ```
 
 ### Predict SEMWISE rating
@@ -457,110 +466,113 @@ saveRDS(ml_all_meta, '/project/soil_micro_lab/micro_indicators/machine_learning/
 
 ml_all_SEMWISE <- ml_all_meta[,c(1:2442,2554)]
 
-soil_split <- initial_split(ml_all_SEMWISE, prop = 4/5)
-soil_split
-# 428 samples in training, 108 in testing, 536 total
+set.seed(12)
 
-# extract the train and test sets
-soil_train <- training(soil_split)
-soil_test <- testing(soil_split)
+for(i in 1:25) {
+  soil_split <- initial_split(ml_all_SEMWISE, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
 
-# cross validation
-soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
 
-# define a "recipe", i.e., the role of each variable in the model
-# predicting SEMWISE rating, and all other variables (ECs) are predictors
-# if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
 
-soil_recipe <- recipe(SH_rating ~ ., data = ml_all_SEMWISE)
-soil_recipe
-# 2442 predictors
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting SEMWISE rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
 
-# specify the model
-# tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
-# set_args values = tune() when tuning
-# change set_args parameters to tuned grid values after tuning
-rf_model <- rand_forest() %>% 
-  set_args(mtry = 1223, trees = 250, min_n = 3) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
+  soil_recipe <- recipe(SH_rating ~ ., data = ml_all_SEMWISE)
+  soil_recipe
+  # 2442 predictors
 
-# set the workflow
-rf_workflow <- workflow() %>%
-  add_recipe(soil_recipe) %>%
-  add_model(rf_model)
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1223, trees = 250, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
 
-# tune the parameters
-# comment out section between ########## when not tuning
-##########
-# doing 25%, 50%, and 75% of the total number of predictors, respectively
-#rf_grid <- expand.grid(mtry = c(611,1223,1834),
-#                       trees = c(100,250,500),
-#                       min_n = c(3,5,7))
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
 
-# extract results
-#rf_tune_results <- rf_workflow %>%
-#  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
 
-# save tune results
-#saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_SEMWISE_tune_results.RDS")
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_SEMWISE_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
 
-#rf_tune_results %>%
-#  collect_metrics()
-
-# finalize the workflow
-#param_final <- rf_tune_results %>%
-#  select_best(metric = "mae")
-#param_final
-
-#rf_workflow <- rf_workflow %>%
-#  finalize_workflow(param_final)
-##########
-
-# fit the model
-# this will fit on the training set and evaluate on test set
-rf_fit <- rf_workflow %>%
-  last_fit(soil_split)
-rf_fit
-
-# save the fit
-saveRDS(rf_fit, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_fit25.RDS")
-
-# see how well the model performs
-test_performance <- rf_fit %>% collect_metrics()
-test_performance
-
-# generate predictions from the test set
-test_predictions <- rf_fit %>% collect_predictions()
-test_predictions
-
-# graph a regression of predicted vs observed SH_rating values
-SEMWISE_EC_lm <- lm(SH_rating ~ .pred, data = test_predictions)
-p1 <- ggplot(SEMWISE_EC_lm$model, aes(x = SH_rating, y = .pred)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-  labs(title = paste("Adj R2 =",signif(summary(SEMWISE_EC_lm)$adj.r.squared, 2),
-                     " P =",signif(summary(SEMWISE_EC_lm)$coef[2,4], 2)),
-                     x = "Observed SEMWISE Rating", y = "Predicted SEMWISE Rating") +
-  theme_bw()
-p1
-
-# save plot
-ggsave("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_pred_vs_obs25.tiff", unit = "in", width = 6, height = 6, 
-       dpi = 300, device = "tiff")
-
-# fitting the final model
-# uses all data that can be tested on a new data set
-final_model <- fit(rf_workflow, ml_all_SEMWISE)
-
-# save the final model
-saveRDS(final_model, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_final_model25.RDS")
-
-# variable importance
-ranger_obj <- pull_workflow_fit(final_model)$fit
-ranger_obj
-var_importance <- as.data.frame(ranger_obj$variable.importance)
-write.csv(var_importance, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/var_importance_EC25.csv", row.names = TRUE)
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  SEMWISE_EC_lm <- lm(SH_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(SEMWISE_EC_lm$model, aes(x = SH_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(SEMWISE_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(SEMWISE_EC_lm)$coef[2,4], 2)),
+                       x = "Observed SEMWISE Rating", y = "Predicted SEMWISE Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_SEMWISE)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
 ```
 
 ### Predict SHMI rating
@@ -571,112 +583,115 @@ ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learnin
 
 ml_all_SHMI <- ml_all_meta[,c(1:2442,2591)]
 
-soil_split <- initial_split(ml_all_SHMI, prop = 4/5)
-soil_split
-# 428 samples in training, 108 in testing, 536 total
+set.seed(13)
 
-# extract the train and test sets
-soil_train <- training(soil_split)
-soil_test <- testing(soil_split)
-
-# cross validation
-soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
-
-# define a "recipe", i.e., the role of each variable in the model
-# predicting SHMI2_rating, and all other variables (ECs) are predictors
-# if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
-
-soil_recipe <- recipe(SHMI2_rating ~ ., data = ml_all_SHMI)
-soil_recipe
-# 2442 predictors
-
-# specify the model
-# tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
-# set_args values = tune() when tuning
-# change set_args parameters to tuned grid values after tuning
-rf_model <- rand_forest() %>% 
-  set_args(mtry = 1223, trees = 500, min_n = 3) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
-
-# set the workflow
-rf_workflow <- workflow() %>%
-  add_recipe(soil_recipe) %>%
-  add_model(rf_model)
-
-# tune the parameters
-# comment out section between ########## when not tuning
-##########
-# doing 25%, 50%, and 75% of the total number of predictors, respectively
-rf_grid <- expand.grid(mtry = c(611,1223,1834),
-                       trees = c(100,250,500),
-                       min_n = c(3,5,7))
-
-# extract results
-rf_tune_results <- rf_workflow %>%
-  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
-
-# save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_SHMI_tune_results.RDS")
-
-rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_SHMI_tune_results.RDS")
-
-rf_tune_results %>%
-  collect_metrics()
-
-# finalize the workflow
-param_final <- rf_tune_results %>%
-  select_best(metric = "mae")
-param_final
-
-rf_workflow <- rf_workflow %>%
-  finalize_workflow(param_final)
-##########
-
-# fit the model
-# this will fit on the training set and evaluate on test set
-rf_fit <- rf_workflow %>%
-  last_fit(soil_split)
-rf_fit
-
-# save the fit
-saveRDS(rf_fit, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_fit.RDS")
-
-# see how well the model performs
-test_performance <- rf_fit %>% collect_metrics()
-test_performance
-
-# generate predictions from the test set
-test_predictions <- rf_fit %>% collect_predictions()
-test_predictions
-
-# graph a regression of predicted vs observed SH_rating values
-SHMI_EC_lm <- lm(SHMI2_rating ~ .pred, data = test_predictions)
-p1 <- ggplot(SHMI_EC_lm$model, aes(x = SHMI2_rating, y = .pred)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-  labs(title = paste("Adj R2 =",signif(summary(SHMI_EC_lm)$adj.r.squared, 2),
-                     " P =",signif(summary(SHMI_EC_lm)$coef[2,4], 2)),
-                     x = "Observed SHMI Rating", y = "Predicted SHMI Rating") +
-  theme_bw()
-p1
-
-# save plot
-ggsave("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_pred_vs_obs.tiff", unit = "in", width = 6, height = 6, 
-       dpi = 300, device = "tiff")
-
-# fitting the final model
-# uses all data that can be tested on a new data set
-final_model <- fit(rf_workflow, ml_all_SHMI)
-
-# save the final model
-saveRDS(final_model, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_final_model.RDS")
-
-# variable importance
-ranger_obj <- pull_workflow_fit(final_model)$fit
-ranger_obj
-var_importance <- as.data.frame(ranger_obj$variable.importance)
-write.csv(var_importance, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/var_importance_EC.csv", row.names = TRUE)
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_SHMI, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting SHMI2_rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(SHMI2_rating ~ ., data = ml_all_SHMI)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1223, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_SHMI_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_SHMI_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  SHMI_EC_lm <- lm(SHMI2_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(SHMI_EC_lm$model, aes(x = SHMI2_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(SHMI_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(SHMI_EC_lm)$coef[2,4], 2)),
+                       x = "Observed SHMI Rating", y = "Predicted SHMI Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_SHMI)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
 ```
 
 ### Predict organic matter rating
@@ -687,110 +702,113 @@ ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learnin
 
 ml_all_SOM <- ml_all_meta[,c(1:2442,2518)]
 
-soil_split <- initial_split(ml_all_SOM, prop = 4/5)
-soil_split
-# 428 samples in training, 108 in testing, 536 total
+set.seed(14)
 
-# extract the train and test sets
-soil_train <- training(soil_split)
-soil_test <- testing(soil_split)
-
-# cross validation
-soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
-
-# define a "recipe", i.e., the role of each variable in the model
-# predicting SOM rating, and all other variables (ECs) are predictors
-# if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
-
-soil_recipe <- recipe(organic_matter_rating ~ ., data = ml_all_SOM)
-soil_recipe
-# 2442 predictors
-
-# specify the model
-# tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
-# set_args values = tune() when tuning
-# change set_args parameters to tuned grid values after tuning
-rf_model <- rand_forest() %>% 
-  set_args(mtry = 1834, trees = 500, min_n = 3) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
-
-# set the workflow
-rf_workflow <- workflow() %>%
-  add_recipe(soil_recipe) %>%
-  add_model(rf_model)
-
-# tune the parameters
-# comment out section between ########## when not tuning
-##########
-# doing 25%, 50%, and 75% of the total number of predictors, respectively
-#rf_grid <- expand.grid(mtry = c(611,1223,1834),
-#                       trees = c(100,250,500),
-#                       min_n = c(3,5,7))
-
-# extract results
-#rf_tune_results <- rf_workflow %>%
-#  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
-
-# save tune results
-#saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_SOM_tune_results.RDS")
-
-#rf_tune_results %>%
-#  collect_metrics()
-
-# finalize the workflow
-#param_final <- rf_tune_results %>%
-#  select_best(metric = "mae")
-#param_final
-
-#rf_workflow <- rf_workflow %>%
-#  finalize_workflow(param_final)
-##########
-
-# fit the model
-# this will fit on the training set and evaluate on test set
-rf_fit <- rf_workflow %>%
-  last_fit(soil_split)
-rf_fit
-
-# save the fit
-saveRDS(rf_fit, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_fit25.RDS")
-
-# see how well the model performs
-test_performance <- rf_fit %>% collect_metrics()
-test_performance
-
-# generate predictions from the test set
-test_predictions <- rf_fit %>% collect_predictions()
-test_predictions
-
-# graph a regression of predicted vs observed values
-SOM_EC_lm <- lm(organic_matter_rating ~ .pred, data = test_predictions)
-p1 <- ggplot(SOM_EC_lm$model, aes(x = organic_matter_rating, y = .pred)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-  labs(title = paste("Adj R2 =",signif(summary(SOM_EC_lm)$adj.r.squared, 2),
-                     " P =",signif(summary(SOM_EC_lm)$coef[2,4], 2)),
-                     x = "Observed SOM Rating", y = "Predicted SOM Rating") +
-  theme_bw()
-p1
-
-# save plot
-ggsave("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_pred_vs_obs25.tiff", unit = "in", width = 6, height = 6, 
-       dpi = 300, device = "tiff")
-
-# fitting the final model
-# uses all data that can be tested on a new data set
-final_model <- fit(rf_workflow, ml_all_SOM)
-
-# save the final model
-saveRDS(final_model, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_final_model25.RDS")
-
-# variable importance
-ranger_obj <- pull_workflow_fit(final_model)$fit
-ranger_obj
-var_importance <- as.data.frame(ranger_obj$variable.importance)
-write.csv(var_importance, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/var_importance_EC25.csv", row.names = TRUE)
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_SOM, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting SOM rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(organic_matter_rating ~ ., data = ml_all_SOM)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_SOM_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed values
+  SOM_EC_lm <- lm(organic_matter_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(SOM_EC_lm$model, aes(x = organic_matter_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(SOM_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(SOM_EC_lm)$coef[2,4], 2)),
+                       x = "Observed SOM Rating", y = "Predicted SOM Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_SOM)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
 ```
 
 ### Predict aggregate stability rating
@@ -801,111 +819,947 @@ ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learnin
 
 ml_all_AGGSTAB <- ml_all_meta[,c(1:2442,2516)]
 
-soil_split <- initial_split(ml_all_AGGSTAB, prop = 4/5)
-soil_split
-# 428 samples in training, 108 in testing, 536 total
+set.seed(15)
 
-# extract the train and test sets
-soil_train <- training(soil_split)
-soil_test <- testing(soil_split)
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_AGGSTAB, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting aggregate stability rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(aggregate_stability_rating ~ ., data = ml_all_AGGSTAB)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1223, trees = 250, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_AGGSTAB_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_AGGSTAB_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  AGGSTAB_EC_lm <- lm(aggregate_stability_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(AGGSTAB_EC_lm$model, aes(x = aggregate_stability_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(AGGSTAB_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(AGGSTAB_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Aggregate Stability Rating", y = "Predicted Aggregate Stability Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_AGGSTAB)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
 
-# cross validation
-soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+### Predict water capacity rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
-# define a "recipe", i.e., the role of each variable in the model
-# predicting aggregate stability rating, and all other variables (ECs) are predictors
-# if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+ml_all_WATERCAP <- ml_all_meta[,c(1:2442,2514)]
 
-soil_recipe <- recipe(aggregate_stability_rating ~ ., data = ml_all_AGGSTAB)
-soil_recipe
-# 2442 predictors
+set.seed(16)
 
-# specify the model
-# tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
-# set_args values = tune() when tuning
-# change set_args parameters to tuned grid values after tuning
-rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), trees = tune(), min_n = tune()) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_WATERCAP, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting water capacity rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(water_capacity_rating ~ ., data = ml_all_WATERCAP)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 250, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/ml_all_EC_WATERCAP_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/ml_all_EC_WATERCAP_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  WATERCAP_EC_lm <- lm(water_capacity_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(WATERCAP_EC_lm$model, aes(x = water_capacity_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(WATERCAP_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(WATERCAP_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Water Capacity Rating", y = "Predicted Water Capacity Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_WATERCAP)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/WATERCAP_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
 
-# set the workflow
-rf_workflow <- workflow() %>%
-  add_recipe(soil_recipe) %>%
-  add_model(rf_model)
+### Predict ace soil protein index rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
-# tune the parameters
-# comment out section between ########## when not tuning
-##########
-# doing 25%, 50%, and 75% of the total number of predictors, respectively
-rf_grid <- expand.grid(mtry = c(611,1223,1834),
-                       trees = c(100,250,500),
-                       min_n = c(3,5,7))
+ml_all_ACE <- ml_all_meta[,c(1:2442,2520)]
 
-# extract results
-rf_tune_results <- rf_workflow %>%
-  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+set.seed(17)
 
-# save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_AGGSTAB_tune_results.RDS")
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_ACE, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting ace soil protein index rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(ace_soil_protein_index_rating ~ ., data = ml_all_ACE)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1223, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_all_EC_ACE_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_all_EC_ACE_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  ACE_EC_lm <- lm(ace_soil_protein_index_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(ACE_EC_lm$model, aes(x = ace_soil_protein_index_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ACE_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ACE_EC_lm)$coef[2,4], 2)),
+                       x = "Observed ACE Protein Rating", y = "Predicted ACE Protein Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_ACE)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
 
-rf_tune_results %>%
-  collect_metrics()
+### Predict respiration rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
-# finalize the workflow
-param_final <- rf_tune_results %>%
-  select_best(metric = "mae")
-param_final
+ml_all_RESP <- ml_all_meta[,c(1:2442,2522)]
 
-rf_workflow <- rf_workflow %>%
-  finalize_workflow(param_final)
-##########
+set.seed(18)
 
-# fit the model
-# this will fit on the training set and evaluate on test set
-rf_fit <- rf_workflow %>%
-  last_fit(soil_split)
-rf_fit
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_RESP, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting respiration rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(respiration_rating ~ ., data = ml_all_RESP)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 611, trees = 500, min_n = 5) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, respectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/ml_all_EC_RESP_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/ml_all_EC_RESP_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  RESP_EC_lm <- lm(respiration_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(RESP_EC_lm$model, aes(x = respiration_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(RESP_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(RESP_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Respiration Rating", y = "Predicted Respiration Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_RESP)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RESP_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
 
-# save the fit
-saveRDS(rf_fit, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_fit.RDS")
+### Predict active carbon rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
-# see how well the model performs
-test_performance <- rf_fit %>% collect_metrics()
-test_performance
+ml_all_ACTIVEC <- ml_all_meta[,c(1:2442,2524)]
 
-# generate predictions from the test set
-test_predictions <- rf_fit %>% collect_predictions()
-test_predictions
+set.seed(19)
 
-# graph a regression of predicted vs observed SH_rating values
-AGGSTAB_EC_lm <- lm(aggregate_stability_rating ~ .pred, data = test_predictions)
-p1 <- ggplot(AGGSTAB_EC_lm$model, aes(x = aggregate_stability_rating, y = .pred)) +
-  geom_point() +
-  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-  labs(title = paste("Adj R2 =",signif(summary(AGGSTAB_EC_lm)$adj.r.squared, 2),
-                     " P =",signif(summary(AGGSTAB_EC_lm)$coef[2,4], 2)),
-                     x = "Observed Aggregate Stability Rating", y = "Predicted Aggregate Stability Rating") +
-  theme_bw()
-p1
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_ACTIVEC, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting active carbon rating, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(active_carbon_rating ~ ., data = ml_all_ACTIVEC)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 611, trees = 250, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, ACTIVECectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_ACTIVEC_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_ACTIVEC_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  ACTIVEC_EC_lm <- lm(active_carbon_rating ~ .pred, data = test_predictions)
+  p1 <- ggplot(ACTIVEC_EC_lm$model, aes(x = active_carbon_rating, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ACTIVEC_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ACTIVEC_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Active Carbon Rating", y = "Predicted Active Carbon Rating") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_ACTIVEC)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
 
-# save plot
-ggsave("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_pred_vs_obs.tiff", unit = "in", width = 6, height = 6, 
-       dpi = 300, device = "tiff")
+### Predict root index
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
-# fitting the final model
-# uses all data that can be tested on a new data set
-final_model <- fit(rf_workflow, ml_all_AGGSTAB)
+ml_all_ROOT <- ml_all_meta[,c(1:2442,2541)]
 
-# save the final model
-saveRDS(final_model, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/ml_all_EC_final_model.RDS")
+set.seed(20)
 
-# variable importance
-ranger_obj <- pull_workflow_fit(final_model)$fit
-ranger_obj
-var_importance <- as.data.frame(ranger_obj$variable.importance)
-write.csv(var_importance, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/AGGSTAB_model_results/var_importance_EC.csv", row.names = TRUE)
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_ROOT, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting root index, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(root ~ ., data = ml_all_ROOT)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 500, min_n = 5) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, ROOTectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/ml_all_EC_ROOT_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/ml_all_EC_ROOT_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  ROOT_EC_lm <- lm(root ~ .pred, data = test_predictions)
+  p1 <- ggplot(ROOT_EC_lm$model, aes(x = root, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ROOT_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ROOT_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Root Index", y = "Predicted Root Index") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_ROOT)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
+
+### Predict Richness index
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
+
+ml_all_RICH <- ml_all_meta[,c(1:2442,2542)]
+
+set.seed(21)
+
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_RICH, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting richness index, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(rich ~ ., data = ml_all_RICH)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, RICHectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/ml_all_EC_RICH_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/ml_all_EC_RICH_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  RICH_EC_lm <- lm(rich ~ .pred, data = test_predictions)
+  p1 <- ggplot(RICH_EC_lm$model, aes(x = rich, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(RICH_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(RICH_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Richness Index", y = "Predicted Richness Index") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_RICH)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/RICH_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
 ```
 
 
+### Predict Disturbance index
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+# Run in Ceres on Demand due to high computational requirements
+```{r}
+ml_all_meta <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_all_meta.RDS")
 
+ml_all_DIST <- ml_all_meta[,c(1:2442,2543)]
+
+set.seed(22)
+
+for (i in 1:25) {
+  soil_split <- initial_split(ml_all_DIST, prop = 4/5)
+  soil_split
+  # 428 samples in training, 108 in testing, 536 total
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting DISTness index, and all other variables (ECs) are predictors
+  # if pre-processing steps or checks are needed (e.g., normalization), can use ?selections to see what selectors can be used
+  
+  soil_recipe <- recipe(dist ~ ., data = ml_all_DIST)
+  soil_recipe
+  # 2442 predictors
+  
+  # specify the model
+  # tune randomness, number of trees, and min nodes/max depth (# of splits each decision tree can make)
+  # set_args values = tune() when tuning
+  # change set_args parameters to tuned grid values after tuning
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 1834, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # tune the parameters
+  # comment out section between ########## when not tuning
+  ##########
+  # doing 25%, 50%, and 75% of the total number of predictors, DISTectively
+  #rf_grid <- expand.grid(mtry = c(611,1223,1834),
+  #                       trees = c(100,250,500),
+  #                       min_n = c(3,5,7))
+  
+  # extract results
+  #rf_tune_results <- rf_workflow %>%
+  #  tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
+  
+  # save tune results
+  #saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/ml_all_EC_DIST_tune_results.RDS")
+  
+  #rf_tune_results <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/ml_all_EC_DIST_tune_results.RDS")
+  
+  #rf_tune_results %>%
+  #  collect_metrics()
+  
+  # finalize the workflow
+  #param_final <- rf_tune_results %>%
+  #  select_best(metric = "mae")
+  #param_final
+  
+  #rf_workflow <- rf_workflow %>%
+  #  finalize_workflow(param_final)
+  ##########
+  
+  # fit the model
+  # this will fit on the training set and evaluate on test set
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  DIST_EC_lm <- lm(dist ~ .pred, data = test_predictions)
+  p1 <- ggplot(DIST_EC_lm$model, aes(x = dist, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(DIST_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(DIST_EC_lm)$coef[2,4], 2)),
+                       x = "Observed Disturbance Index", y = "Predicted Disturbance Index") +
+    theme_bw()
+  p1
+  
+  # save plot
+  ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_all_DIST)
+  
+  # save the final model
+  saveRDS(final_model, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/DIST_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
