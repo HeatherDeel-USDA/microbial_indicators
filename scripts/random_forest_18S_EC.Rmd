@@ -1,0 +1,88 @@
+---
+title: "18S_EC"
+author: "Heather Deel"
+date: "2023-09-22"
+output: html_document
+---
+
+### Setup and packages
+```{r setup, include=FALSE}
+library(tidymodels)
+library(tidyverse)
+library(workflows)
+library(tune)
+library(metagMisc)
+library(ranger)
+library(randomForest)
+```
+
+### Load and format data
+# only need to run this once - can skip to the next chunk
+# run on local computer
+```{r}
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('picrust2_files/18S/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/18S/picrust2_out_SHAI_18S/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('/project/soil_micro_lab/micro_indicators/machine_learning/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('/project/soil_micro_lab/micro_indicators/machine_learning/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('/project/soil_micro_lab/micro_indicators/machine_learning/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
+hops2018_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
