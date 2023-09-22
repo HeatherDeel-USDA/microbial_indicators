@@ -22,7 +22,7 @@ library(randomForest)
 ```{r}
 # we don't need the full phyloseq from before, so reimporting
 func <- read.delim('picrust2_files/18S/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
-df <- read.delim('picrust2_files/18S/picrust2_out_SHAI_18S/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+df <- read.delim('picrust2_files/18S/picrust2_out_SHAI_18S/marker_nsti_predicted.tsv.gz', sep = '\t')
 
 names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
 
