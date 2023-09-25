@@ -4,22 +4,16 @@
 # SHAI 18S EC data, tuning only for random forest
 #####################################################
 
-### submitted as bash script in Scinet
-
-############## before I do that, just need to change all paths to correct ones
+### submitted as bash script in Scinet (/project/soil_micro_lab/micro_indicators/machine_learning/18S_EC/18S_EC.sh)
 
 ### libraries
-library(tidymodels) #installed
-library(tidyverse) # not installed - working with scinet, but may need to break down into individual packages
+library(tidymodels)
 library(workflows)
 library(tune)
-library(metagMisc)
-library(ranger)
-library(randomForest)
 
 ### Predict Overall CASH rating
 # read in data and subset to correct column
-SHAI18S_ml <- readRDS("machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
+SHAI18S_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
 
 SHAI18S_ml_CASH <- SHAI18S_ml[,c(97,154:1282)]
 
