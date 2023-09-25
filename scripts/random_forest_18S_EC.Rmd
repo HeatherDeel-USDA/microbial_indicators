@@ -84,7 +84,7 @@ SHAI18S_ml_CASH <- SHAI18S_ml[,c(97,154:1282)]
 
 set.seed(1)
 
-#for (i in 1:25) {
+for (i in 1:25) {
   soil_split <- initial_split(SHAI18S_ml_CASH, prop = 4/5)
   soil_split
   # 252 samples in training, 64 in testing, 316 total
