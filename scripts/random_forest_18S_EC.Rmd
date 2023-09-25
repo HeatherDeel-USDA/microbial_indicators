@@ -77,6 +77,9 @@ saveRDS(SHAI18S_ml, "machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
 ### Predict Overall CASH rating
 # Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
 # Run locally
+
+############# need to edit section so it just reads in the tuning results before the grid, then manually change the grid, and then proceeds to fitting the model in a 1-25 loop
+
 ```{r}
 SHAI18S_ml <- readRDS("machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
 
