@@ -1,0 +1,316 @@
+---
+title: "Random Forest"
+author: "Heather Deel"
+date: "2023-08-07"
+output: html_document
+---
+
+### Setup and packages
+```{r setup, include=FALSE}
+library(tidymodels)
+library(tidyverse)
+library(workflows)
+library(tune)
+library(metagMisc)
+library(ranger)
+library(randomForest)
+```
+
+### Load and format data
+# only need to run this once - can skip to the next chunk
+# Run in scinet, except NRCS which required local computer
+```{r}
+### Hops.2018
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Hops.2018/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('/project/soil_micro_lab/micro_indicators/machine_learning/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('/project/soil_micro_lab/micro_indicators/machine_learning/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('/project/soil_micro_lab/micro_indicators/machine_learning/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
+hops2018_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hops2018_ml_EC.RDS")
+
+### Hops.ARS
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Hops.ARS/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# add qPCR data to new func object
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2413)]
+
+saveRDS(hopsARS_ml, '/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hopsARS_ml_EC.RDS')
+hopsARS_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/hopsARS_ml_EC.RDS")
+
+### NRCS
+# split NRCS data into two to keep R from crashing
+func1 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib1.RDS")
+func2 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib2.RDS")
+df <- read.delim('picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func1 <- func1 %>%
+  full_join(df, by="taxon")
+func2 <- func2 %>%
+  full_join(df, by="taxon")
+
+# read in qPCR data from local env instead of scinet
+qPCR_data <- read.delim('metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+# add qPCR data to new func object
+# clear unused R memory here
+func1 <- merge(func1, qPCR_data, by = "sample")
+# clear unused R memory again
+func2 <- merge(func2, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func1$gene_counts <- func1$taxon_rel_abun / 100 * func1$genome_function_count / func1$genome_16S_count * func1$qPCR
+func2$gene_counts <- func2$taxon_rel_abun / 100 * func2$genome_function_count / func2$genome_16S_count * func2$qPCR
+
+# change column name "function" to "EC"
+colnames(func1)[2] <- "EC"
+colnames(func2)[2] <- "EC"
+
+# pool data by sample and function
+otu1 <- func1 %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu1 <- otu1 %>%
+  spread(key=sample, value=sum)
+otu1 <- data.frame(otu1)
+otu1[is.na(otu1)] <- 0
+row.names(otu1) <- otu1$EC
+otu1 <- otu1[,-1]
+
+otu2 <- func2 %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu2 <- otu2 %>%
+  spread(key=sample, value=sum)
+otu2 <- data.frame(otu2)
+otu2[is.na(otu2)] <- 0
+row.names(otu2) <- otu2$EC
+otu2 <- otu2[,-1]
+
+# transpose the "otu" table
+otu1 <- t(otu1)
+otu2 <- t(otu2)
+
+# convert matrix to data frame
+otu1 <- as.data.frame(otu1)
+otu2 <- as.data.frame(otu2)
+
+# make the sample names a column for merging later
+otu1 <- tibble::rownames_to_column(otu1, "SampleID")
+otu2 <- tibble::rownames_to_column(otu2, "SampleID")
+
+# merge metadata and "otu" table
+# reread in data.merged from local drive
+data.pred.SHMI <- readRDS('metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+NRCS1 <- merge(data.merged, otu1, by = "SampleID")
+NRCS1 <- as.data.frame(NRCS1)
+NRCS2 <- merge(data.merged, otu2, by = "SampleID")
+NRCS2 <- as.data.frame(NRCS2)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS1_ml <- NRCS1[,c(1,95,152:2534)]
+NRCS2_ml <- NRCS2[,c(1,95,152:2472)]
+
+saveRDS(NRCS1_ml, "machine_learning/16S_EC/NRCS1_ml_EC.RDS")
+saveRDS(NRCS2_ml, "machine_learning/16S_EC/NRCS2_ml_EC.RDS")
+
+# read into scinet
+NRCS1_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/NRCS1_ml_EC.RDS")
+NRCS2_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/NRCS2_ml_EC.RDS")
+
+### Rangeland
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Rangeland/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('/project/soil_micro_lab/micro_indicators/2023_0621_picrust2_full/picrust2_out_Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# add qPCR data to new func object
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+rangeland_all <- merge(data.merged, otu, by = "SampleID")
+rangeland_all <- as.data.frame(rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+rangeland_ml <- rangeland_all[,c(1,95,152:2391)]
+
+saveRDS(rangeland_ml, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/rangeland_ml_EC.RDS")
+rangeland_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/rangeland_ml_EC.RDS")
+
+### final formatting of ml_all object
+
+# merge ml dfs for Hops.2018 Hops.ARS, NRCS1, NRCS2, and Rangeland
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS1_ml, ml_1, all = TRUE)
+ml_3 <- merge(NRCS2_ml, ml_2, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_3, all = TRUE)
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all[is.na(ml_all)] <- 0
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+ml_all <- ml_all[c(1:314,316:537),]
+
+# make the sample names the row names again to make selecting columns for ml easy
+rownames(ml_all) <- ml_all$SampleID
+
+# get rid of sampleID column
+ml_all <- ml_all[,c(2:2448)]
+
+# check for any NAs in ml_all
+sum(is.na(ml_all))
+# none
+
+# data is ready for ML
+
+# save ML object
+saveRDS(ml_all, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_all_EC.RDS")
+```
