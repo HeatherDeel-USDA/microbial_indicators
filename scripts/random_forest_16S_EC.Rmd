@@ -5,6 +5,11 @@ date: "2023-09-27"
 output: html_document
 ---
 
+########## rework this in a few ways
+1. need to import the new ml_all_16S object so we don't have to merge with other df every time
+2. change output naming conventions to make more sense/be shortened
+3. Separate tuning from loops for 16S
+
 ### Setup and packages
 ```{r setup, include=FALSE}
 library(tidymodels)

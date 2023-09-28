@@ -16,8 +16,7 @@ library(ranger)
 library(randomForest)
 ```
 
-### Load and format data
-# only need to run this once - can skip to the next chunk
+### Load and format 16S data
 # Run in scinet, except NRCS which required local computer
 ```{r}
 ### Hops.2018
@@ -314,3 +313,71 @@ sum(is.na(ml_all))
 # save ML object
 saveRDS(ml_all, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_all_EC.RDS")
 ```
+
+### Load and format 18S data
+# run on local computer
+```{r}
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('picrust2_files/18S/EC_metagenome_out/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/18S/picrust2_out_SHAI_18S/marker_nsti_predicted.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_18S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# read in metadata
+data.18S <- read.delim('metadata/SHAI.Meta.6September2023.q2.18S.txt', sep = '\t')
+
+# get qPCR data into func
+# subset data.18S to just SampleID and qPCR_18S
+qPCR_18S_df <- data.18S[,c(1,3)]
+colnames(qPCR_18S_df)[1] <- "sample"
+func <- merge(func, qPCR_18S_df, by = "sample")
+func <- func %>% 
+  filter(!is.na(qPCR_18S))
+
+# we imported un-normalized counts, so normalizing here
+func$gene_counts <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_18S_count * func$qPCR_18S
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(gene_counts))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+SHAI18S_all <- merge(data.18S, otu, by = "SampleID")
+SHAI18S_ml <- as.data.frame(SHAI18S_all)
+
+saveRDS(SHAI18S_ml, "machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
+```
+
+### Combine 16S and 18S EC data
+
+######### before I do that, edit above 16S code - get a better output for ml_all object that includes all of the metadata columns (not just CASH), and rename the output to something better
+```{r}
+
+```
+
+
+
+
