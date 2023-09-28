@@ -403,7 +403,7 @@ ml_EC_18S$SampleID <- str_replace(ml_EC_18S$SampleID, "18S.","")
 # merge dfs
 ml_EC_16S_18S <- merge(ml_EC_16S, ml_EC_18S, by = "SampleID", all = TRUE)
 
-
+###### count 18S qPCRs - if qPCR is the limiting factor and why so many 18S samples are filtered out, can look into a regression that can simulate unknown qPCRs so we can keep them combined. Otherwise, may need to use just 16S data, or keep them separate like before. Need to make a decision with Dan on this
 
 # save final file, can subset this for all ml
 
