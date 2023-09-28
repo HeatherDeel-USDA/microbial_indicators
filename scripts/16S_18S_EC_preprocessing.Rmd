@@ -372,16 +372,40 @@ otu <- tibble::rownames_to_column(otu, "SampleID")
 SHAI18S_all <- merge(data.18S, otu, by = "SampleID")
 SHAI18S_ml <- as.data.frame(SHAI18S_all)
 
+# filter NAs - use index column
+SHAI18S_ml <- SHAI18S_ml %>% 
+  filter(!is.na(Index))
 
-
-saveRDS(SHAI18S_ml, "machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
+saveRDS(SHAI18S_ml, "machine_learning/16S_18S_EC/ml_EC_18S.RDS")
 ```
 
 ### Combine 16S and 18S EC data
-
-######### before I do that, edit above 16S code - get a better output for ml_all object that includes all of the metadata columns (not just CASH), and rename the output to something better
 ```{r}
 # need to figure out how to label 16S/18S data - add a prefix of some kind to all cols in each df
+# clear messy env and reload objects, give better name
+ml_EC_16S <- readRDS("machine_learning/16S_18S_EC/ml_EC_16S.RDS")
+ml_EC_18S <- readRDS("machine_learning/16S_18S_EC/ml_EC_18S.RDS")
+
+# add a prefix to 16S and 18S dfs
+original_cols_16S <- colnames(ml_EC_16S)
+colnames(ml_EC_16S) <- paste("16S", original_cols_16S, sep = "_")
+
+original_cols_18S <- colnames(ml_EC_18S)
+colnames(ml_EC_18S) <- paste("18S", original_cols_18S, sep = "_")
+
+# get rid of prefixes from SampleID for merging
+colnames(ml_EC_16S)[1] <- "SampleID"
+colnames(ml_EC_18S)[1] <- "SampleID"
+
+# need to change some 18S sample names to match 16S sample names for merging
+ml_EC_18S$SampleID <- str_replace(ml_EC_18S$SampleID, "18S.","")
+
+# merge dfs
+ml_EC_16S_18S <- merge(ml_EC_16S, ml_EC_18S, by = "SampleID", all = TRUE)
+
+
+
+# save final file, can subset this for all ml
 
 ```
 
