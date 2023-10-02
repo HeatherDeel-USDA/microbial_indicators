@@ -17,6 +17,7 @@ ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/
 ml_EC_16S_AGGSTAB <- ml_EC_16S[,c(2572,2:2445)]
 
 # filter NAs
+ml_EC_16S_AGGSTAB$agg_stab.corr <- as.numeric(ml_EC_16S_AGGSTAB$agg_stab.corr)
 ml_EC_16S_AGGSTAB <- ml_EC_16S_AGGSTAB %>% 
   filter(!is.na(agg_stab.corr))
 

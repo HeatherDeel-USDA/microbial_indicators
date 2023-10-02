@@ -17,6 +17,7 @@ ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/
 ml_EC_16S_ACE <- ml_EC_16S[,c(2575,2:2445)]
 
 # filter NAs
+ml_EC_16S_ACE$ace.corr <- as.numeric(ml_EC_16S_ACE$ace.corr)
 ml_EC_16S_ACE <- ml_EC_16S_ACE %>% 
   filter(!is.na(ace.corr))
 
