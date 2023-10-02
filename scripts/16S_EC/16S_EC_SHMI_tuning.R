@@ -1,35 +1,26 @@
-#!/bin/bash
-#SBATCH --job-name="18S_EC"
-#SBATCH -p debug
-#SBATCH -N 1
-#SBATCH --threads-per-core=1
-#SBATCH -n 1
-#SBATCH -t 1:00:00
-#SBATCH --mail-user=heather.deel@usda.gov
-#SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH -o "stdout.%j.%N"
+#################################################
+# 16S EC tuning for SHMI Rating RF Model
+#################################################
 
-### activate R module
-module load r/4.3.0
-
-### change directory so it can find R packages
-cd /project/soil_micro_lab/micro_indicators/R_packages
-
-### start R
-Rserve(args="--no-save")
+### submitted as bash script in Scinet
 
 ### libraries
 library(tidymodels)
 library(workflows)
 library(tune)
+library(ranger)
 
-### Predict Overall CASH rating
+### Predict SHMI2_rating SHMI rating
 # read in data and subset to correct column
-SHAI18S_ml <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/18S_EC/SHAI18S_ml_EC.RDS")
+ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 
-SHAI18S_ml_CASH <- SHAI18S_ml[,c(97,154:1282)]
+ml_EC_16S_SHMI <- ml_EC_16S[,c(2594,2:2445)]
 
-soil_split <- initial_split(SHAI18S_ml_CASH, prop = 4/5)
+# filter NAs
+ml_EC_16S_SHMI <- ml_EC_16S_SHMI %>% 
+  filter(!is.na(SHMI2_rating))
+
+soil_split <- initial_split(ml_EC_16S_SHMI, prop = 4/5)
 soil_split
 
 # extract the train and test sets
@@ -40,7 +31,7 @@ soil_test <- testing(soil_split)
 soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
 
 # define the recipe
-soil_recipe <- recipe(Overall ~ ., data = SHAI18S_ml_CASH)
+soil_recipe <- recipe(SHMI2_rating ~ ., data = ml_EC_16S_SHMI)
 soil_recipe
 
 # specify the model, tune
@@ -55,7 +46,7 @@ rf_workflow <- workflow() %>%
   add_model(rf_model)
 
 # tune the parameters
-rf_grid <- expand.grid(mtry = c(282,565,847),
+rf_grid <- expand.grid(mtry = c(611,1223,1834),
                        trees = c(100,250,500),
                        min_n = c(3,5,7))
 
@@ -64,7 +55,4 @@ rf_tune_results <- rf_workflow %>%
   tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
 
 # save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/18S_EC/CASH_model_results/SHAI18S_ml_CASH_tune_results.RDS")
-
-
-
+saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SHMI_model_results/ml_EC_16S_SHMI_tune_results.RDS")
