@@ -48,7 +48,7 @@ for (i in 1:25) {
   soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
   
   # define a "recipe", i.e., the role of each variable in the model
-  # predicting Overall CASH rating, and all other variables (ECs) are predictors
+  # predicting CASH rating, and all other variables (ECs) are predictors
   soil_recipe <- recipe(Overall ~ ., data = ml_EC_16S_CASH)
   soil_recipe
   
@@ -597,3 +597,201 @@ for (i in 1:25) {
   write.csv(var_importance, paste("machine_learning/16S_EC/DIST_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
 }
 ```
+
+### Predict ACE rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+```{r}
+ml_EC_16S <- readRDS("machine_learning/16S_EC/ml_EC_16S.RDS")
+
+ml_EC_16S_ACE <- ml_EC_16S[,c(2575,2:2445)]
+
+# filter NAs
+ml_EC_16S_ACE$ace.corr <- as.numeric(ml_EC_16S_ACE$ace.corr)
+ml_EC_16S_ACE <- ml_EC_16S_ACE %>%
+  filter(!is.na(ace.corr))
+
+# read in tuning results (generated in individual scripts in scripts/16S_EC, run on Scinet, and transferred to local one drive)
+# change the set_args parameters before running the 25 loops
+rf_tune_results <- readRDS("machine_learning/16S_EC/ACE_model_results/ml_EC_16S_ACE_tune_results.RDS")
+param_final <- rf_tune_results %>%
+  select_best(metric = "mae")
+param_final
+
+set.seed(7)
+
+for (i in 1:25) {
+  soil_split <- initial_split(ml_EC_16S_ACE, prop = 4/5)
+  soil_split
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting ACE rating, and all other variables (ECs) are predictors
+  soil_recipe <- recipe(ace.corr ~ ., data = ml_EC_16S_ACE)
+  soil_recipe
+  
+  # specify the model
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 611, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # fit the model
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("machine_learning/16S_EC/ACE_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  ACE_EC_lm <- lm(ace.corr ~ .pred, data = test_predictions)
+  p1 <- ggplot(ACE_EC_lm$model, aes(x = ace.corr, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ACE_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ACE_EC_lm)$coef[2,4], 2)),
+                       x = "Observed ACE Rating", y = "Predicted ACE Rating") +
+    theme_bw()
+  p1
+  
+  # save R^2 and p-values to files
+  write.table(summary(ACE_EC_lm)$adj.r.squared, file = "machine_learning/16S_EC/ACE_model_results/ACE_r2_values.txt", append = TRUE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  
+  write.table(summary(ACE_EC_lm)$coef[2,4], file = "machine_learning/16S_EC/ACE_model_results/ACE_p_values.txt", append = TRUE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  
+  # save plot
+  ggsave(paste("machine_learning/16S_EC/ACE_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_EC_16S_ACE)
+  
+  # save the final model
+  saveRDS(final_model, paste("machine_learning/16S_EC/ACE_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("machine_learning/16S_EC/ACE_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
+
+### Predict ACTIVEC rating
+# Run 25 times, with outputs 1-25, to account for lucky/unlucky splits after tuning
+```{r}
+ml_EC_16S <- readRDS("machine_learning/16S_EC/ml_EC_16S.RDS")
+
+ml_EC_16S_ACTIVEC <- ml_EC_16S[,c(2563,2:2445)]
+
+# filter NAs
+ml_EC_16S_ACTIVEC$activeC.corr <- as.numeric(ml_EC_16S_ACTIVEC$activeC.corr)
+ml_EC_16S_ACTIVEC <- ml_EC_16S_ACTIVEC %>%
+  filter(!is.na(activeC.corr))
+
+# read in tuning results (generated in individual scripts in scripts/16S_EC, run on Scinet, and transferred to local one drive)
+# change the set_args parameters before running the 25 loops
+rf_tune_results <- readRDS("machine_learning/16S_EC/ACTIVEC_model_results/ml_EC_16S_ACTIVEC_tune_results.RDS")
+param_final <- rf_tune_results %>%
+  select_best(metric = "mae")
+param_final
+
+set.seed(8)
+
+for (i in 1:25) {
+  soil_split <- initial_split(ml_EC_16S_ACTIVEC, prop = 4/5)
+  soil_split
+  
+  # extract the train and test sets
+  soil_train <- training(soil_split)
+  soil_test <- testing(soil_split)
+  
+  # cross validation
+  soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
+  
+  # define a "recipe", i.e., the role of each variable in the model
+  # predicting ACTIVEC rating, and all other variables (ECs) are predictors
+  soil_recipe <- recipe(activeC.corr ~ ., data = ml_EC_16S_ACTIVEC)
+  soil_recipe
+  
+  # specify the model
+  rf_model <- rand_forest() %>% 
+    set_args(mtry = 611, trees = 500, min_n = 3) %>%
+    set_engine("ranger", importance = "impurity") %>%
+    set_mode("regression")
+  
+  # set the workflow
+  rf_workflow <- workflow() %>%
+    add_recipe(soil_recipe) %>%
+    add_model(rf_model)
+  
+  # fit the model
+  rf_fit <- rf_workflow %>%
+    last_fit(soil_split)
+  rf_fit
+  
+  # save the fit
+  saveRDS(rf_fit, paste("machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  
+  # see how well the model performs
+  test_performance <- rf_fit %>% collect_metrics()
+  test_performance
+  
+  # generate predictions from the test set
+  test_predictions <- rf_fit %>% collect_predictions()
+  test_predictions
+  
+  # graph a regression of predicted vs observed SH_rating values
+  ACTIVEC_EC_lm <- lm(activeC.corr ~ .pred, data = test_predictions)
+  p1 <- ggplot(ACTIVEC_EC_lm$model, aes(x = activeC.corr, y = .pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ACTIVEC_EC_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ACTIVEC_EC_lm)$coef[2,4], 2)),
+                       x = "Observed ACTIVEC Rating", y = "Predicted ACTIVEC Rating") +
+    theme_bw()
+  p1
+  
+  # save R^2 and p-values to files
+  write.table(summary(ACTIVEC_EC_lm)$adj.r.squared, file = "machine_learning/16S_EC/ACTIVEC_model_results/ACTIVEC_r2_values.txt", append = TRUE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  
+  write.table(summary(ACTIVEC_EC_lm)$coef[2,4], file = "machine_learning/16S_EC/ACTIVEC_model_results/ACTIVEC_p_values.txt", append = TRUE, sep = "\t", row.names = FALSE, col.names = FALSE)
+  
+  # save plot
+  ggsave(paste("machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_pred_vs_obs", i, ".tiff", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+  
+  # fitting the final model
+  # uses all data that can be tested on a new data set
+  final_model <- fit(rf_workflow, ml_EC_16S_ACTIVEC)
+  
+  # save the final model
+  saveRDS(final_model, paste("machine_learning/16S_EC/ACTIVEC_model_results/ml_all_EC_final_model", i, ".RDS", sep = ""))
+  
+  # variable importance
+  ranger_obj <- pull_workflow_fit(final_model)$fit
+  ranger_obj
+  var_importance <- as.data.frame(ranger_obj$variable.importance)
+  write.csv(var_importance, paste("machine_learning/16S_EC/ACTIVEC_model_results/var_importance_EC", i, ".csv", sep = ""), row.names = TRUE)
+}
+```
+
+
