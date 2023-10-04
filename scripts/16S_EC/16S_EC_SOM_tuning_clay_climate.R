@@ -10,7 +10,7 @@ library(workflows)
 library(tune)
 library(ranger)
 
-### Predict SOM.corr SOM rating
+### Predict SOM rating
 # read in data and subset to correct column
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 
