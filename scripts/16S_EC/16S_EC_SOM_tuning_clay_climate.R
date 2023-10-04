@@ -1,5 +1,5 @@
 #################################################
-# 16S EC tuning for SEMWISE Rating RF Model
+# 16S EC tuning for SOM RF Model
 #################################################
 
 ### submitted as bash script in Scinet
@@ -10,19 +10,22 @@ library(workflows)
 library(tune)
 library(ranger)
 
-### Predict SH_rating SEMWISE rating
+### Predict SOM.corr SOM rating
 # read in data and subset to correct column
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 
+# use regular SOM value
 # column ranges are: EC numbers, clay, climates, prediction
-ml_EC_16S_SEMWISE <- ml_EC_16S[,c(2:2445,2515,2549:2555,2557)]
+ml_EC_16S_SOM <- ml_EC_16S[,c(2:2445,2515,2549:2555,2520)]
 
 # filter NAs
-ml_EC_16S_SEMWISE$clay <- as.numeric(ml_EC_16S_SEMWISE$clay)
-ml_EC_16S_SEMWISE <- ml_EC_16S_SEMWISE %>% 
-  filter(!is.na(SH_rating))
+ml_EC_16S_SOM$clay <- as.numeric(ml_EC_16S_SOM$clay)
+ml_EC_16S_SOM$SOM <- as.numeric(ml_EC_16S_SOM$SOM)
+ml_EC_16S_SOM$SOM <- as.numeric(ml_EC_16S_SOM$SOM)
+ml_EC_16S_SOM <- ml_EC_16S_SOM %>% 
+  filter(!is.na(SOM))
 
-soil_split <- initial_split(ml_EC_16S_SEMWISE, prop = 4/5)
+soil_split <- initial_split(ml_EC_16S_SOM, prop = 4/5)
 soil_split
 
 # extract the train and test sets
@@ -33,7 +36,7 @@ soil_test <- testing(soil_split)
 soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
 
 # define the recipe
-soil_recipe <- recipe(SH_rating ~ ., data = ml_EC_16S_SEMWISE)
+soil_recipe <- recipe(SOM ~ ., data = ml_EC_16S_SOM)
 soil_recipe
 
 # specify the model, tune
@@ -57,4 +60,4 @@ rf_tune_results <- rf_workflow %>%
   tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
 
 # save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SEMWISE_model_results/ml_EC_16S_SEMWISE_tune_results_clay_climate.RDS")
+saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/SOM_model_results/ml_EC_16S_SOM_tune_results_clay_climate.RDS")
