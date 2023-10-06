@@ -21,7 +21,6 @@ ml_EC_16S_SOM <- ml_EC_16S[,c(2:2445,2515,2549:2555,2520)]
 # filter NAs
 ml_EC_16S_SOM$clay <- as.numeric(ml_EC_16S_SOM$clay)
 ml_EC_16S_SOM$SOM <- as.numeric(ml_EC_16S_SOM$SOM)
-ml_EC_16S_SOM$SOM <- as.numeric(ml_EC_16S_SOM$SOM)
 ml_EC_16S_SOM <- ml_EC_16S_SOM %>% 
   filter(!is.na(SOM))
 
