@@ -13,6 +13,7 @@ library(ggpubr)
 ```
 
 ### Boxplot of 16S_EC R^2 values
+# no clay and climate
 ```{r}
 ml_16S_stats <- read_xlsx("machine_learning/16S_EC/16S_ec_ml_stats.xlsx")
 
@@ -43,5 +44,39 @@ p1 <- ggplot(ml_16S_stats, aes(x=model_type, y=r2_val)) +
 p1
 
 ggsave("machine_learning/16S_EC/16S_ec_ml_r2.tiff", unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
+```
+
+### Boxplot of 16S_EC R^2 values
+# SEMWISE and SOM with clay and climate, for testing purposes
+```{r}
+ml_16S_stats <- read_xlsx("machine_learning/16S_EC/16S_ec_ml_stats.xlsx")
+
+stat.test <- compare_means(r2_val ~ model_type,
+                           data = ml_16S_stats,
+                           method = 'wilcox.test',
+                           p.adj = 'fdr')
+stat.test$Comparison <- paste0(stat.test$group1, " - ", stat.test$group2)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+  
+groups$y <- 0.9
+
+# reordering from highest to lowest r^2 values
+ml_16S_stats$model_type <- factor(ml_16S_stats$model_type, levels = c('SOM_cc','SHMI','DIST',
+                                                              'CASH','ROOT','SEMWISE_cc', 'SEMWISE',
+                                                              'ACE','SOM','AGGSTAB',
+                                                              'ACTIVEC','RICH',
+                                                              'RESP','WATERCAP'))
+
+p1 <- ggplot(ml_16S_stats, aes(x=model_type, y=r2_val)) + 
+  geom_boxplot(fill='grey') + 
+  labs(y='R^2 Values', x='Prediction Type') + 
+  theme_bw() + 
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=Letter))
+p1
+
+ggsave("machine_learning/16S_EC/16S_ec_ml_r2_SEMWISEcc_SOMcc.tiff", unit = "in", width = 6, height = 6, dpi = 300, device = "tiff")
 ```
 
