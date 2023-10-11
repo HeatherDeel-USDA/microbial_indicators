@@ -5,6 +5,9 @@ date: "2023-10-02"
 output: html_document
 ---
 
+######### need to do a lot of editing this script, still has .corr vals, and will need to change model parameters after retuning, as well as making graphs for models with clay+climate
+#### and was messing with ace
+
 ### Setup and packages
 ```{r setup, include=FALSE}
 library(tidymodels)
@@ -632,12 +635,12 @@ for (i in 1:25) {
   
   # define a "recipe", i.e., the role of each variable in the model
   # predicting ACE rating, and all other variables (ECs) are predictors
-  soil_recipe <- recipe(ace.corr ~ ., data = ml_EC_16S_ACE)
+  soil_recipe <- recipe(ace ~ ., data = ml_EC_16S_ACE)
   soil_recipe
   
   # specify the model
   rf_model <- rand_forest() %>% 
-    set_args(mtry = 611, trees = 500, min_n = 3) %>%
+    set_args(mtry = 611, trees = 5, min_n = 3) %>%
     set_engine("ranger", importance = "impurity") %>%
     set_mode("regression")
   
@@ -652,7 +655,7 @@ for (i in 1:25) {
   rf_fit
   
   # save the fit
-  saveRDS(rf_fit, paste("machine_learning/16S_EC/ACE_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
+  #saveRDS(rf_fit, paste("machine_learning/16S_EC/ACE_model_results/ml_all_EC_fit", i, ".RDS", sep = ""))
   
   # see how well the model performs
   test_performance <- rf_fit %>% collect_metrics()

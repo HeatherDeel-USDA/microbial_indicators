@@ -1,5 +1,6 @@
 #################################################
-# 16S EC tuning for ACE RF Model
+# 16S EC tuning for ACTIVEC RF Model
+# Using cforest methods as described in Strobl et al. 2007
 #################################################
 
 ### submitted as bash script in Scinet
@@ -8,22 +9,22 @@
 library(tidymodels)
 library(workflows)
 library(tune)
-library(ranger)
+library(bonsai)
 
-### Predict ACE without clay and climate as predictors
+### Predict ACTIVEC without clay and climate as predictors
 # read in data and subset to correct column
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 
-# use regular ACE value
+# use regular ACTIVEC value
 # column ranges are: EC numbers, prediction
-ml_EC_16S_ACE <- ml_EC_16S[,c(2:2445,2522)]
+ml_EC_16S_ACTIVEC <- ml_EC_16S[,c(2:2445,2526)]
 
 # filter NAs
-ml_EC_16S_ACE$ace <- as.numeric(ml_EC_16S_ACE$ace)
-ml_EC_16S_ACE <- ml_EC_16S_ACE %>% 
-  filter(!is.na(ace))
+ml_EC_16S_ACTIVEC$activeC <- as.numeric(ml_EC_16S_ACTIVEC$activeC)
+ml_EC_16S_ACTIVEC <- ml_EC_16S_ACTIVEC %>% 
+  filter(!is.na(activeC))
 
-soil_split <- initial_split(ml_EC_16S_ACE, prop = 4/5)
+soil_split <- initial_split(ml_EC_16S_ACTIVEC, prop = 4/5)
 soil_split
 
 # extract the train and test sets
@@ -34,14 +35,16 @@ soil_test <- testing(soil_split)
 soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
 
 # define the recipe
-soil_recipe <- recipe(ace ~ ., data = ml_EC_16S_ACE)
+soil_recipe <- recipe(activeC ~ ., data = ml_EC_16S_ACTIVEC)
 soil_recipe
 
 # specify the model, tune
 rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), trees =tune(), min_n = tune()) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
+  set_args(mtry = tune(), min_n = tune(), trees = tune()) %>%
+  set_engine("partykit", importance = "permutation", replace = FALSE) %>%
+  set_mode("regression") %>% 
+  translate()
+rf_model
 
 # set the workflow
 rf_workflow <- workflow() %>%
@@ -58,19 +61,19 @@ rf_tune_results <- rf_workflow %>%
   tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
 
 # save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_EC_16S_ACE_tune_results.RDS")
+saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_EC_16S_ACTIVEC_tune_results_cforest.RDS")
 
-### Predict ACE with clay and climate as predictors
-# use regular ACE value
-ml_EC_16S_ACE <- ml_EC_16S[,c(2:2445,2515,2549:2555,2522)]
+### Predict ACTIVEC with clay and climate as predictors
+# use regular ACTIVEC value
+ml_EC_16S_ACTIVEC <- ml_EC_16S[,c(2:2445,2515,2549:2555,2526)]
 
 # filter NAs
-ml_EC_16S_ACE$clay <- as.numeric(ml_EC_16S_ACE$clay)
-ml_EC_16S_ACE$ace <- as.numeric(ml_EC_16S_ACE$ace)
-ml_EC_16S_ACE <- ml_EC_16S_ACE %>% 
-  filter(!is.na(ace))
+ml_EC_16S_ACTIVEC$clay <- as.numeric(ml_EC_16S_ACTIVEC$clay)
+ml_EC_16S_ACTIVEC$activeC <- as.numeric(ml_EC_16S_ACTIVEC$activeC)
+ml_EC_16S_ACTIVEC <- ml_EC_16S_ACTIVEC %>% 
+  filter(!is.na(activeC))
 
-soil_split <- initial_split(ml_EC_16S_ACE, prop = 4/5)
+soil_split <- initial_split(ml_EC_16S_ACTIVEC, prop = 4/5)
 soil_split
 
 # extract the train and test sets
@@ -81,14 +84,16 @@ soil_test <- testing(soil_split)
 soil_cv <- vfold_cv(soil_train, v = 5, repeats = 10, strata = NULL)
 
 # define the recipe
-soil_recipe <- recipe(ace ~ ., data = ml_EC_16S_ACE)
+soil_recipe <- recipe(activeC ~ ., data = ml_EC_16S_ACTIVEC)
 soil_recipe
 
 # specify the model, tune
 rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), trees =tune(), min_n = tune()) %>%
-  set_engine("ranger", importance = "impurity") %>%
-  set_mode("regression")
+  set_args(mtry = tune(), min_n = tune(), trees = tune()) %>%
+  set_engine("partykit", importance = "permutation", replace = FALSE) %>%
+  set_mode("regression") %>% 
+  translate()
+rf_model
 
 # set the workflow
 rf_workflow <- workflow() %>%
@@ -105,5 +110,5 @@ rf_tune_results <- rf_workflow %>%
   tune_grid(resamples = soil_cv, grid = rf_grid, metrics = metric_set(mae, rmse))
 
 # save tune results
-saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_EC_16S_ACE_tune_results_clay_climate.RDS")
+saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACTIVEC_model_results/ml_EC_16S_ACTIVEC_tune_results_cforest_clay_climate.RDS")
 
