@@ -1,6 +1,6 @@
 #################################################
 # 16S EC tuning for RESP RF Model
-# Using cforest methods as described in Strobl et al. 2007
+# Using cforest within partykit for unbiased variable importances
 #################################################
 
 ### submitted as bash script in Scinet
@@ -40,8 +40,8 @@ soil_recipe
 
 # specify the model, tune
 rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), min_n = tune(), trees = tune()) %>%
-  set_engine("partykit", importance = "permutation", replace = FALSE) %>%
+  set_args(mtry = tune(), min_n = tune(), trees = 500) %>%
+  set_engine("partykit") %>%
   set_mode("regression") %>% 
   translate()
 rf_model
@@ -53,7 +53,6 @@ rf_workflow <- workflow() %>%
 
 # tune the parameters
 rf_grid <- expand.grid(mtry = c(611,1223,1834),
-                       trees = c(100,250,500),
                        min_n = c(3,5,7))
 
 # extract results
@@ -89,8 +88,8 @@ soil_recipe
 
 # specify the model, tune
 rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), min_n = tune(), trees = tune()) %>%
-  set_engine("partykit", importance = "permutation", replace = FALSE) %>%
+  set_args(mtry = tune(), min_n = tune(), trees = 500) %>%
+  set_engine("partykit") %>%
   set_mode("regression") %>% 
   translate()
 rf_model
@@ -102,7 +101,6 @@ rf_workflow <- workflow() %>%
 
 # tune the parameters
 rf_grid <- expand.grid(mtry = c(613,1226,1839),
-                       trees = c(100,250,500),
                        min_n = c(3,5,7))
 
 # extract results
