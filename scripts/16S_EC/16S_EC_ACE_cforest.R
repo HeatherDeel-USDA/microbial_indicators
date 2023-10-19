@@ -40,8 +40,9 @@ soil_recipe <- recipe(ace ~ ., data = ml_EC_16S_ACE)
 soil_recipe
 
 # specify the model, tune
+# trying to add values instead of tuning to see if it will even finish
 rf_model <- rand_forest() %>% 
-  set_args(mtry = tune(), min_n = tune(), trees = 500) %>%
+  set_args(mtry = 611, min_n = 5, trees = 500) %>%
   set_engine("partykit") %>%
   set_mode("regression") %>% 
   translate()
@@ -62,6 +63,32 @@ rf_tune_results <- rf_workflow %>%
 
 # save tune results
 saveRDS(rf_tune_results, "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results/ml_EC_16S_ACE_tune_results_cforest.RDS")
+
+########################################################################
+### adding code here checking the untuned model, can maybe erase later ###
+
+# fit the model
+rf_fit <- rf_workflow %>%
+  last_fit(soil_split)
+rf_fit
+
+test_performance <- rf_fit %>% collect_metrics()
+test_performance
+
+# generate predictions from the test set
+test_predictions <- rf_fit %>% collect_predictions()
+test_predictions
+
+ACE_EC_lm <- lm(ace ~ .pred, data = test_predictions)
+p1 <- ggplot(ACE_EC_lm$model, aes(x = ace, y = .pred)) +
+  geom_point() +
+  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+  labs(title = paste("Adj R2 =",signif(summary(ACE_EC_lm)$adj.r.squared, 2),
+                     " P =",signif(summary(ACE_EC_lm)$coef[2,4], 2)),
+       x = "Observed ACE", y = "Predicted ACE") +
+  theme_bw()
+p1
+##############################################################
 
 # ### Predict ACE with clay and climate as predictors
 # # use regular ACE value
