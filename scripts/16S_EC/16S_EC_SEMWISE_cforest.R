@@ -13,7 +13,7 @@ library(partykit)
 
 # ### Predict SEMWISE without clay and climate as predictors
 # # read in data and subset to correct column
-# ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
+ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 # 
 # # use regular SEMWISE value
 # # column ranges are: EC numbers, prediction
