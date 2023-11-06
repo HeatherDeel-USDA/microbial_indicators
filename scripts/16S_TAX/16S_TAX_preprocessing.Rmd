@@ -18,9 +18,6 @@ library(janitor)
 ```
 
 ### Load and format data
-# Performed in scinet
-
-
 ### need to read in metadata, get metadata into same df as OTU table, qPCR correct all of the counts in the OTU table?
 ```{r}
 tax <- read.delim("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/All.tx.dada.txt")
