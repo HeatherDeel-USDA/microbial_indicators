@@ -7,69 +7,30 @@ output: html_document
 
 ### Setup and packages
 ```{r setup, include=FALSE}
-library(tidymodels)
 library(tidyverse)
-library(workflows)
-library(tune)
-library(metagMisc)
-library(ranger)
-library(randomForest)
-library(janitor)
+library(phyloseq)
 ```
 
 ### Load and format data
-### need to read in metadata, get metadata into same df as OTU table, qPCR correct all of the counts in the OTU table?
 ```{r}
-tax <- read.delim("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/All.tx.dada.txt")
+# load Dan's phyloseq object created in SHAI_Data_Processing.Rmd
+P.total <- readRDS("dan_files/P.Soils.16S.species.Total.RDS")
 
-# metadata
-data.pred.SHMI <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/data.pred.SHMI.RDS")
+# export otu table from phyloseq
+OTU1 = as(otu_table(P.total), "matrix")
+OTU1 <- data.frame(OTU1)
+OTU1$PLFA_ID <- rownames(OTU1)
 
-# read in metadata that includes sampleIDs to merge with data.pred.SHMI
-data.sampleID <- read.delim('/project/soil_micro_lab/micro_indicators/machine_learning/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
-
-# merge metadata files
+# upload current metadata
+data.sampleID <- read.delim('metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('metadata/data.pred.SHMI.RDS')
 data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
 
-# move the sample ID column to the front
-data.merged <- data.merged %>% 
-  relocate(SampleID)
+# merge OTU table with current metadata
+ml_TAX_16S <- merge(data.merged, OTU1, by = "PLFA_ID", all.x = TRUE)
 
-# transpose tax
-tax_t <- t(tax)
-
-# make OTUID row the column names 
-tax_t <- tax_t %>% 
-  row_to_names(row_number = 1)
-
-# get rownames to column for merging
-tax_t <- as.data.frame(tax_t)
-tax_t <- rownames_to_column(tax_t, "SampleID")
-
-# get qPCR data into tax data
-
-######### need to get the correct qPCR column, not the scaled one
-qPCR_data <- data.merged[,c(1,99)]
-tax2 <- merge(tax_t, qPCR_data, by = "SampleID")
-
-
-
-##### need to get relative abundance of everything
-
-# multiply everything by qPCR column
-tax2 <- column_to_rownames(tax2, var = "SampleID")
-tax2 <- tax2 %>% 
-  relocate(qPCR)
-tax3 <- mutate_all(tax2, function(x) as.numeric(as.character(x)))
-  
-tax_total <- tax3 %>% 
-  mutate(across(everything(), ~ .x*qPCR))
-
-# get rest of metadata into tax data
-
-
-# save object for future subsetting
-
-
+# save
+saveRDS(ml_TAX_16S, file = "machine_learning/16S_TAX/ml_TAX_16S.RDS")
 ```
+
 
