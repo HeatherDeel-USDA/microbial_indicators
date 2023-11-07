@@ -6,13 +6,6 @@ args = commandArgs(trailingOnly=TRUE)
 # print task number
 print(paste0('Hello! I am task number: ', args[1]))
 
-### things to do:
-# need to spit varimps out to a file and save them
-# spit R2 and p-values to a file, but make it so the task number is attached to it
-# graphing of predicted vs observed of R2 values for everything, save to a file such that the task number is attached to it
-# put together scripts for job array in scinet
-# add cores = 12 (or something) in cforest controls
-
 # libraries
 library(dplyr)
 library(party)
@@ -83,6 +76,7 @@ write.table(cbind(task_num,r2_val,p_val),
 
 # variable importances
 ace.imp <- party::varimp(object = cf.ace, conditional = TRUE)
+write.csv(ace.imp, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/ACE_EC_var_importance", args[1], ".csv", sep = ""), row.names = TRUE)
 
 
 
