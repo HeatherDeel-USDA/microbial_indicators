@@ -1,10 +1,3 @@
----
-title: "16S_TAX_ACE_cforest"
-author: "Heather Deel"
-date: "2023-11-06"
-output: html_document
----
-
 #################################################
 # 16S TAX ACE RF Model
 # Using cforest within partykit for unbiased variable importances
@@ -18,20 +11,20 @@ library(tune)
 library(bonsai)
 library(partykit)
 
-# read in data
+### read in data
 ml_TAX_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/ml_TAX_16S.RDS")
-
-set.seed(1)
 
 ### Predict ACE with clay and climate as predictors
 # use regular ACE value
-ml_TAX_16S_ACE <- ml_TAX_16S[,c(2:2445,2515,2549:2555,2522)]
+ml_TAX_16S_ACE <- ml_TAX_16S[,c(70,104:110,77,152:7614)]
 
 # filter NAs
 ml_TAX_16S_ACE$clay <- as.numeric(ml_TAX_16S_ACE$clay)
 ml_TAX_16S_ACE$ace <- as.numeric(ml_TAX_16S_ACE$ace)
 ml_TAX_16S_ACE <- ml_TAX_16S_ACE %>%
   filter(!is.na(ace))
+
+set.seed(1)
 
 for (i in 1:25) {
   soil_split <- initial_split(ml_TAX_16S_ACE, prop = 4/5)
@@ -50,7 +43,7 @@ for (i in 1:25) {
   
   # specify the model
   rf_model <- rand_forest() %>%
-    set_args(mtry = X, min_n = 5, trees = 500) %>%
+    set_args(mtry = 2490, min_n = 5, trees = 500) %>%
     set_engine("partykit") %>%
     set_mode("regression") %>%
     translate()
