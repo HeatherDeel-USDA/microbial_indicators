@@ -1,12 +1,25 @@
-#### Testing using cforest package
+#!/usr/bin/env Rscript
+
+# accept command line arguments and save them in a list called args
+args = commandArgs(trailingOnly=TRUE)
+
+# print task number
+print(paste0('Hello! I am task number: ', args[1]))
+
+### things to do:
+# make sure the varimp output works (before doing anything else)
+# need to spit varimps out to a file and save them
+# spit R2 and p-values to a file, but make it so the task number is attached to it
+# graphing of predicted vs observed of R2 values for everything, save to a file such that the task number is attached to it
+# put together scripts for job array in scinet
+# add cores = 12 (or something) in cforest controls
 
 ### libraries
 library(dplyr)
 library(party)
 
-set.seed(1)
-
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
+ml_EC_16S <- readRDS("machine_learning/16S_EC/ml_EC_16S.RDS")
 
 ml_EC_16S_ACE <- ml_EC_16S[,c(2:2445,2515,2549:2555,2522)]
 
@@ -38,10 +51,4 @@ cf.pred <- predict(cf.ace, newdata = test)
 
 # variable importances
 ace.imp <- party::varimp(object = cf.ace, conditional = TRUE)
-
-### seems like this is working so far, but also need to think about whether I should add cross validation of some sort
-# check in Wilhelm's code to see what kind of cross validation they did/how they did it
-# need to do some sort of 5-fold cross validation on training data? maybe. maybe not.
-# can also explore tuning again with cross-validation now that the models don't take 4 years to run
-# explore these things with the caret package
 
