@@ -1,0 +1,43 @@
+---
+title: "16S_EC_ml_importances"
+author: "Heather Deel"
+date: "2023-11-08"
+output: html_document
+---
+
+### Compiling variable importances for all EC models for all indicators
+
+### what I'm trying to do here:
+# iteratively read in all 25 var importance csvs for each indicator (they need to be separate dfs)
+# within each df, calculate the top 50% of important features
+# filter dfs down to just top 50% of important features
+# combine dfs with important features, make sure to add column in each indicator's df of which indicator/rating/etc they came from
+# graph overlapping features
+# make a list of features that are present in say 6 or more of the indicators? Or maybe just the features that are important in all of the indicators? see what the results look like and then decide
+
+### Libraries
+```{r}
+library(tidyverse)
+```
+
+### Import importances for all indicators
+```{r}
+# ACE
+temp = list.files(pattern="\\.csv$",
+                  path = "machine_learning/16S_EC/ACE_model_results_clay_climate") %>% 
+  map_df(~read_csv(., col_types = cols(.default = "c")))
+myfiles = lapply(temp, read.delim)
+
+
+
+
+
+ace_tbl <- list.files(path = "machine_learning/16S_EC/ACE_model_results_clay_climate/",
+                      pattern = "ACE_EC_var_importance*",
+                      full.names = T) %>% 
+  map_df(~read.csv(., col_types = cols(.default = "c")))
+
+read.csv(dir('machine_learning/16S_EC/ACE_model_results_clay_climate', full.names=T, pattern="^ACE_EC_var_importance"))
+
+```
+

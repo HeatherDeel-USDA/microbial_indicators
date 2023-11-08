@@ -1,0 +1,82 @@
+#!/usr/bin/env Rscript
+
+# accept command line arguments and save them in a list called args
+args = commandArgs(trailingOnly=TRUE)
+
+# print task number
+print(paste0('Hello! I am task number: ', args[1]))
+
+# libraries
+library(dplyr)
+library(party)
+library(tidyverse)
+
+ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
+
+ml_EC_16S_ROOT <- ml_EC_16S[,c(2:2445,2515,2549:2555,2544)]
+
+# filter NAs
+ml_EC_16S_ROOT$clay <- as.numeric(ml_EC_16S_ROOT$clay)
+ml_EC_16S_ROOT$root <- as.numeric(ml_EC_16S_ROOT$root)
+ml_EC_16S_ROOT <- ml_EC_16S_ROOT %>%
+  filter(!is.na(root))
+
+# format so : and . are replrootd by _ (for varimp)
+names(ml_EC_16S_ROOT) <- gsub(":","_", names(ml_EC_16S_ROOT))
+names(ml_EC_16S_ROOT) <- gsub("\\.","_", names(ml_EC_16S_ROOT))
+
+# split into train and test (4/5 proportion)
+ml_EC_16S_ROOT$id <- 1:nrow(ml_EC_16S_ROOT)
+train <- ml_EC_16S_ROOT %>% dplyr::sample_frac(0.80)
+test <- dplyr::anti_join(ml_EC_16S_ROOT, train, by = 'id')
+
+# get rid of id columns
+train <- train[,c(1:2453)]
+test <- test[,c(1:2453)]
+
+p = nrow(train)/3
+
+# cforest on training data
+cf.root <- cforest(root ~ ., data = train,
+                  controls = cforest_unbiased(mtry = p/3, ntree = 500))
+saveRDS(cf.root, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results_clay_climate/cf.root", args[1], ".RDS", sep = ""))
+cf.pred <- predict(cf.root, newdata = test, OOB = TRUE, type = "response")
+
+# observed vs predicted
+colnames(cf.pred)[1] <- "root.pred"
+cf.pred <- data.frame(cf.pred)
+cf.pred <- rownames_to_column(cf.pred, var = "id")
+test.root <- data.frame(test[,2453])
+colnames(test.root)[1] <- "root.obs"
+test.root <- rownames_to_column(test.root, var = "id")
+cf.pvso <- merge(cf.pred, test.root, by = "id")
+
+saveRDS(cf.pvso, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results_clay_climate/cf_obs_vs_pred", args[1], ".RDS", sep = ""))
+
+ROOT_lm <- lm(root.obs ~ root.pred, data = cf.pvso)
+p1 <- ggplot(ROOT_lm$model, aes(x = root.obs, y = root.pred)) +
+  geom_point() +
+  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+  labs(title = paste("Adj R2 =",signif(summary(ROOT_lm)$adj.r.squared, 2),
+                     " P =",signif(summary(ROOT_lm)$coef[2,4], 2)),
+       x = "Observed Root Index", y = "Predicted Root Index") +
+  theme_bw()
+p1
+
+ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results_clay_climate/ROOT_EC_pred_vs_obs", args[1], ".pdf", sep = ""), unit = "in", width = 6, height = 6, dpi = 300, device = "pdf")
+
+# save R^2 and p-values to a file
+task_num <- args[1]
+r2_val <- summary(ROOT_lm)$adj.r.squared
+p_val <- summary(ROOT_lm)$coef[2,4]
+print(paste0('Hello! I am task number: ', args[1]))
+print(paste0('Hello! My R^2 value is: ', r2_val))
+print(paste0('Hello! My p-value is: ', p_val))
+
+write.table(cbind(task_num,r2_val,p_val), 
+            file = "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results_clay_climate/root.ec.stats.csv", 
+            col.names = c("task_number","r2_val","p_val"),append = TRUE, sep = ",", row.names = FALSE)
+
+# variable importances
+root.imp <- party::varimp(object = cf.root, conditional = TRUE)
+write.csv(root.imp, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ROOT_model_results_clay_climate/ROOT_EC_var_importance", args[1], ".csv", sep = ""), row.names = TRUE)

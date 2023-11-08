@@ -12,7 +12,6 @@ library(party)
 library(tidyverse)
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
-ml_EC_16S <- readRDS("machine_learning/16S_EC/ml_EC_16S.RDS")
 
 ml_EC_16S_ACE <- ml_EC_16S[,c(2:2445,2515,2549:2555,2522)]
 
@@ -42,7 +41,6 @@ cf.ace <- cforest(ace ~ ., data = train,
                   controls = cforest_unbiased(mtry = p/3, ntree = 500))
 saveRDS(cf.ace, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/cf.ace", args[1], ".RDS", sep = ""))
 cf.pred <- predict(cf.ace, newdata = test, OOB = TRUE, type = "response")
-saveRDS(cf.pred, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/cf.ace.pred", args[1], ".RDS", sep = ""))
 
 # observed vs predicted
 colnames(cf.pred)[1] <- "ace.pred"
@@ -52,6 +50,8 @@ test.ace <- data.frame(test[,2453])
 colnames(test.ace)[1] <- "ace.obs"
 test.ace <- rownames_to_column(test.ace, var = "id")
 cf.pvso <- merge(cf.pred, test.ace, by = "id")
+
+saveRDS(cf.pvso, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/cf_obs_vs_pred", args[1], ".RDS", sep = ""))
 
 ACE_lm <- lm(ace.obs ~ ace.pred, data = cf.pvso)
 p1 <- ggplot(ACE_lm$model, aes(x = ace.obs, y = ace.pred)) +
@@ -69,15 +69,14 @@ ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/A
 task_num <- args[1]
 r2_val <- summary(ACE_lm)$adj.r.squared
 p_val <- summary(ACE_lm)$coef[2,4]
+print(paste0('Hello! I am task number: ', args[1]))
+print(paste0('Hello! My R^2 value is: ', r2_val))
+print(paste0('Hello! My p-value is: ', p_val))
 
 write.table(cbind(task_num,r2_val,p_val), 
-            file = "ace.ec.stats.csv", col.names = c("task_number","r2_val","p_val"),
-            append = TRUE, sep = "\t", row.names = FALSE)
+            file = "/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/ace.ec.stats.csv", 
+	    col.names = c("task_number","r2_val","p_val"),append = TRUE, sep = ",", row.names = FALSE)
 
 # variable importances
 ace.imp <- party::varimp(object = cf.ace, conditional = TRUE)
 write.csv(ace.imp, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ACE_model_results_clay_climate/ACE_EC_var_importance", args[1], ".csv", sep = ""), row.names = TRUE)
-
-
-
-
