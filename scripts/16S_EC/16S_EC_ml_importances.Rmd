@@ -8,9 +8,10 @@ output: html_document
 ### Compiling variable importances for all EC models for all indicators
 
 ### what I'm trying to do here:
-# iteratively read in all 25 var importance csvs for each indicator (they need to be separate dfs)
-# within each df, calculate the top 50% of important features
-# filter dfs down to just top 50% of important features
+# iteratively read in all 25 var importance csvs for each indicator (they need to be separate dfs) - DONE
+# within each df, calculate the top 50% of important features - DONE
+# filter dfs down to just top 50% of important features - DONE
+# for each indicator, create one list of overlapping features from 1-25 models
 # combine dfs with important features, make sure to add column in each indicator's df of which indicator/rating/etc they came from
 # graph overlapping features
 # make a list of features that are present in say 6 or more of the indicators? Or maybe just the features that are important in all of the indicators? see what the results look like and then decide
@@ -22,22 +23,45 @@ library(tidyverse)
 
 ### Import importances for all indicators
 ```{r}
-# ACE
-temp = list.files(pattern="\\.csv$",
-                  path = "machine_learning/16S_EC/ACE_model_results_clay_climate") %>% 
-  map_df(~read_csv(., col_types = cols(.default = "c")))
-myfiles = lapply(temp, read.delim)
+### ACE
+# make list of file names
+filenames = list.files(pattern="\\.csv$",
+                  path = "machine_learning/16S_EC/ACE_model_results_clay_climate",
+                  full.names = T)
+ldf <- lapply(filenames, read.csv)
 
+# remove stats file from ldf
+ldf <- ldf[-1]
 
+# format column names
+colnames <- c("EC_number","importance")
+ldf <- lapply(ldf, setNames, colnames)
 
+# filter out negative importances - neg importances reduce predictive value
+ldf <- lapply(ldf, function(x) filter(x, importance > 0))
 
+# calculate percent importances
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance <- as.numeric(ldf[[i]]$importance)
+  sum <- sum(ldf[[i]]$importance)
+  ldf[[i]]$importance_percent <- ldf[[i]]$importance / sum * 100
+} 
 
-ace_tbl <- list.files(path = "machine_learning/16S_EC/ACE_model_results_clay_climate/",
-                      pattern = "ACE_EC_var_importance*",
-                      full.names = T) %>% 
-  map_df(~read.csv(., col_types = cols(.default = "c")))
+# get features that make up top 50% of importance
+ldf <- lapply(ldf, function(df){
+  df[order(df$importance_percent),] #orders importance percentages
+})
 
-read.csv(dir('machine_learning/16S_EC/ACE_model_results_clay_climate', full.names=T, pattern="^ACE_EC_var_importance"))
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance_percent_cumsum <- cumsum(ldf[[i]]$importance_percent) # cumulated sum of percentages
+}
 
+ldf <- lapply(ldf, function(x) filter(x, importance_percent_cumsum > 50)) # filters cumulated sums < 50
+
+# get list of features overlapping between all 25 dfs
+ldf_ace <- ldf %>% reduce(inner_join, by = "EC_number")
+###### add column that says "ace" value, filter down to first two columns for just a list of EC numbers
+
+# there are 8 top 50% important features shared by all 25 models
 ```
 
