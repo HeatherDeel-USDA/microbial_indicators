@@ -196,7 +196,47 @@ cash_shared$indicator <- "CASH"
 
 # Disturbance
 ```{r}
-# not done in scinet yet
+# make list of file names
+filenames = list.files(pattern="\\.csv$",
+                  path = "machine_learning/16S_EC/DIST_model_results_clay_climate",
+                  full.names = T)
+ldf <- lapply(filenames, read.csv)
+
+# remove stats file from ldf
+ldf <- ldf[-1]
+
+# format column names
+colnames <- c("EC_number","importance")
+ldf <- lapply(ldf, setNames, colnames)
+
+# filter out negative importances - neg importances reduce predictive value
+ldf <- lapply(ldf, function(x) filter(x, importance > 0))
+
+# calculate percent importances
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance <- as.numeric(ldf[[i]]$importance)
+  sum <- sum(ldf[[i]]$importance)
+  ldf[[i]]$importance_percent <- ldf[[i]]$importance / sum * 100
+} 
+
+# get features that make up top 50% of importance
+ldf <- lapply(ldf, function(df){
+  df[order(df$importance_percent),] #orders importance percentages
+})
+
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance_percent_cumsum <- cumsum(ldf[[i]]$importance_percent) # cumulated sum of percentages
+}
+
+#ldf <- lapply(ldf, function(x) filter(x, importance_percent_cumsum > 50)) # filters cumulated sums < 50
+# get rid of this line to include all features shared between all 25 models
+
+# get list of features overlapping between all 25 dfs
+dist_shared <- ldf %>% reduce(inner_join, by = "EC_number")
+dist_shared <- dist_shared[,1]
+dist_shared <- data.frame(dist_shared)
+colnames(dist_shared)[1] <- "feature"
+dist_shared$indicator <- "DIST"
 ```
 
 # Respiration
@@ -336,7 +376,47 @@ root_shared$indicator <- "ROOT"
 
 # SEMWISE
 ```{r}
-# not done in scinet yet
+# make list of file names
+filenames = list.files(pattern="\\.csv$",
+                  path = "machine_learning/16S_EC/SEMWISE_model_results_clay_climate",
+                  full.names = T)
+ldf <- lapply(filenames, read.csv)
+
+# remove stats file from ldf
+ldf <- ldf[-26]
+
+# format column names
+colnames <- c("EC_number","importance")
+ldf <- lapply(ldf, setNames, colnames)
+
+# filter out negative importances - neg importances reduce predictive value
+ldf <- lapply(ldf, function(x) filter(x, importance > 0))
+
+# calculate percent importances
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance <- as.numeric(ldf[[i]]$importance)
+  sum <- sum(ldf[[i]]$importance)
+  ldf[[i]]$importance_percent <- ldf[[i]]$importance / sum * 100
+} 
+
+# get features that make up top 50% of importance
+ldf <- lapply(ldf, function(df){
+  df[order(df$importance_percent),] #orders importance percentages
+})
+
+for (i in seq_along(ldf)) {
+  ldf[[i]]$importance_percent_cumsum <- cumsum(ldf[[i]]$importance_percent) # cumulated sum of percentages
+}
+
+#ldf <- lapply(ldf, function(x) filter(x, importance_percent_cumsum > 50)) # filters cumulated sums < 50
+# get rid of this line to include all features shared between all 25 models
+
+# get list of features overlapping between all 25 dfs
+semwise_shared <- ldf %>% reduce(inner_join, by = "EC_number")
+semwise_shared <- semwise_shared[,1]
+semwise_shared <- data.frame(semwise_shared)
+colnames(semwise_shared)[1] <- "feature"
+semwise_shared$indicator <- "SEMWISE"
 ```
 
 # SHMI

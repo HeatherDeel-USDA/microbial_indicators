@@ -29,6 +29,9 @@ data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE
 # merge OTU table with current metadata
 ml_TAX_16S <- merge(data.merged, OTU1, by = "PLFA_ID", all.x = TRUE)
 
+# get rid of NAs - going to assume they are 0
+ml_TAX_16S[is.na(ml_TAX_16S)] <- 0
+
 # save
 saveRDS(ml_TAX_16S, file = "machine_learning/16S_TAX/ml_TAX_16S.RDS")
 ```
