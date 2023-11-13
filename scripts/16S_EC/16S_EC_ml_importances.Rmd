@@ -560,13 +560,41 @@ watercap_shared$indicator <- "WATERCAP"
 # still need to add disturbance, richness, and semwise once they are done in scinet
 
 list_EC_dfs <- list(ace_shared, activec_shared, aggstab_shared, cash_shared,
-                    resp_shared, rich_shared, root_shared, shmi_shared, 
-                    som_shared, watercap_shared)
+                    dist_shared,resp_shared, rich_shared, root_shared, 
+                    semwise_shared, shmi_shared, som_shared, watercap_shared)
 ECs_shared <- list_EC_dfs %>% reduce(inner_join, by = "feature")
 
 # there are no features shared by all 25 models for all indicators
-# decide how to proceed
-# perhaps just merge all important features together, without reducing, and count the number of indicators each feature is important in
+# do a full join and count the number of indicators each feature is important in
+
+ECs_all <- list_EC_dfs %>% reduce(full_join, by = "feature")
+colnames_list <- c("feature","ACE","ACTIVEC","AGGSTAB","CASH","DIST","RESP",
+                   "RICH","ROOT","SEMWISE","SHMI","SOM","WATERCAP")
+colnames(ECs_all) <- colnames_list
+ECs_all$num_indic_imp <- rowSums(!is.na(ECs_all[,2:13]))
+
+# add info to list of ECs
+enzyme_list <- read.csv("ec_files_expasy/enzyme.csv")
+enzyme_list$feature <- paste("EC_",enzyme_list$EC_number, sep = "")
+enzyme_list$feature <- gsub("\\.","_", enzyme_list$feature)
+enzyme_list <- enzyme_list[,2:3]
+ECs_all_info <- ECs_all %>% 
+  left_join(enzyme_list, by = "feature")
+
+# filter ECs_all down to features that were important in 4 or more indicators
+ECs_all_filt <- filter(ECs_all_info, num_indic_imp > 3)
+
+# get Nas in EC_name to be the climate zones
+
+
+p1 <- ggplot(ECs_all_filt, aes(x = reorder(feature, -num_indic_imp), y = num_indic_imp)) +
+  geom_bar(stat = "identity", fill = "darkgreen") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "Features Important in Four or More Indicators",
+       y = "Number of Indicators Feature is Important In")
+p1
+
 ```
 
 
