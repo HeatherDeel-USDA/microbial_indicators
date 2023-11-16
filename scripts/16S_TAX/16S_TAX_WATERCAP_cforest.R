@@ -13,9 +13,8 @@ library(party)
 library(tidyverse)
 
 ml_TAX_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/ml_TAX_16S.RDS")
-#ml_TAX_16S <- readRDS("machine_learning/16S_TAX/ml_TAX_16S.RDS")
 
-ml_TAX_16S_WATERCAP <- ml_TAX_16S[,c(70,104:110,71,152:7614)]
+ml_TAX_16S_WATERCAP <- ml_TAX_16S[,c(70,102,71,152:7614)]
 
 # filter NAs
 ml_TAX_16S_WATERCAP$clay <- as.numeric(ml_TAX_16S_WATERCAP$clay)
@@ -33,8 +32,10 @@ train <- ml_TAX_16S_WATERCAP %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_TAX_16S_WATERCAP, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:7472)]
-test <- test[,c(1:7472)]
+train <- train[,c(1:7466)]
+test <- test[,c(1:7466)]
+train$ClimateZ <- as.factor(train$ClimateZ)
+test$ClimateZ <- as.factor(test$ClimateZ)
 
 p = nrow(train)/3
 
@@ -48,7 +49,7 @@ cf.pred <- predict(cf.water_cap, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "water_cap.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.water_cap <- data.frame(test[,9])
+test.water_cap <- data.frame(test[,3])
 colnames(test.water_cap)[1] <- "water_cap.obs"
 test.water_cap <- rownames_to_column(test.water_cap, var = "id")
 cf.pvso <- merge(cf.pred, test.water_cap, by = "id")

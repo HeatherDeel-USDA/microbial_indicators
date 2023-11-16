@@ -13,9 +13,8 @@ library(party)
 library(tidyverse)
 
 ml_TAX_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/ml_TAX_16S.RDS")
-#ml_TAX_16S <- readRDS("machine_learning/16S_TAX/ml_TAX_16S.RDS")
 
-ml_TAX_16S_ACE <- ml_TAX_16S[,c(70,104:110,77,152:7614)]
+ml_TAX_16S_ACE <- ml_TAX_16S[,c(70,102,77,152:7614)]
 
 # filter NAs
 ml_TAX_16S_ACE$clay <- as.numeric(ml_TAX_16S_ACE$clay)
@@ -33,8 +32,10 @@ train <- ml_TAX_16S_ACE %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_TAX_16S_ACE, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:7472)]
-test <- test[,c(1:7472)]
+train <- train[,c(1:7466)]
+test <- test[,c(1:7466)]
+train$ClimateZ <- as.factor(train$ClimateZ)
+test$ClimateZ <- as.factor(test$ClimateZ)
 
 p = nrow(train)/3
 
@@ -48,7 +49,7 @@ cf.pred <- predict(cf.ace, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "ace.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.ace <- data.frame(test[,9])
+test.ace <- data.frame(test[,3])
 colnames(test.ace)[1] <- "ace.obs"
 test.ace <- rownames_to_column(test.ace, var = "id")
 cf.pvso <- merge(cf.pred, test.ace, by = "id")

@@ -13,7 +13,7 @@ library(tidyverse)
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_16S.RDS")
 
-ml_EC_16S_AGGSTAB <- ml_EC_16S[,c(2:2445,2515,2549:2555,2518)]
+ml_EC_16S_AGGSTAB <- ml_EC_16S[,c(2:2445,2515,2547,2518)]
 
 # filter NAs
 ml_EC_16S_AGGSTAB$clay <- as.numeric(ml_EC_16S_AGGSTAB$clay)
@@ -31,8 +31,10 @@ train <- ml_EC_16S_AGGSTAB %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_EC_16S_AGGSTAB, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:2453)]
-test <- test[,c(1:2453)]
+train <- train[,c(1:2447)]
+test <- test[,c(1:2447)]
+train$ClimateZ <- as.factor(train$ClimateZ)
+test$ClimateZ <- as.factor(test$ClimateZ)
 
 p = nrow(train)/3
 
@@ -46,7 +48,7 @@ cf.pred <- predict(cf.agg_stab, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "agg_stab.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.agg_stab <- data.frame(test[,2453])
+test.agg_stab <- data.frame(test[,2447])
 colnames(test.agg_stab)[1] <- "agg_stab.obs"
 test.agg_stab <- rownames_to_column(test.agg_stab, var = "id")
 cf.pvso <- merge(cf.pred, test.agg_stab, by = "id")

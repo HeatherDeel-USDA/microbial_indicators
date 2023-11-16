@@ -74,13 +74,8 @@ p1 <- ggplot(ace_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = C
        y = "Average Importance Across 25 Models")
 p1
 ggsave("figures/feat_importance_EC_ACE.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
-
 ```
 
-
-
-
-###### Edit indicators from here below once ACE is figured out for averaging and graphing
 # ACTIVE C
 ```{r}
 # make list of file names
@@ -99,33 +94,50 @@ ldf <- lapply(ldf, setNames, colnames)
 # filter out negative importances - neg importances reduce predictive value
 ldf <- lapply(ldf, function(x) filter(x, importance > 0))
 
-# calculate percent importances
-for (i in seq_along(ldf)) {
-  ldf[[i]]$importance <- as.numeric(ldf[[i]]$importance)
-  sum <- sum(ldf[[i]]$importance)
-  ldf[[i]]$importance_percent <- ldf[[i]]$importance / sum * 100
-} 
-
-# get features that make up top 50% of importance
-ldf <- lapply(ldf, function(df){
-  df[order(df$importance_percent),] #orders importance percentages
-})
-
-for (i in seq_along(ldf)) {
-  ldf[[i]]$importance_percent_cumsum <- cumsum(ldf[[i]]$importance_percent) # cumulated sum of percentages
-}
-
-#ldf <- lapply(ldf, function(x) filter(x, importance_percent_cumsum > 50)) # filters cumulated sums < 50
-# get rid of this line to include all features shared between all 25 models
-
 # get list of features overlapping between all 25 dfs
-activec_shared <- ldf %>% reduce(inner_join, by = "EC_number")
-activec_shared <- activec_shared[,1]
-activec_shared <- data.frame(activec_shared)
-colnames(activec_shared)[1] <- "feature"
-activec_shared$indicator <- "ACTIVEC"
+activeC_shared <- ldf %>% reduce(inner_join, by = "EC_number")
+
+# calculate average importance of all shared features
+activeC_shared$avg_imp <- rowMeans(activeC_shared[,2:26])
+activeC_shared <- activeC_shared[,c(1,27)]
+activeC_shared <- data.frame(activeC_shared)
+colnames(activeC_shared)[1] <- "feature"
+activeC_shared$indicator <- "ACTIVEC"
+
+# add Gibbs info to important features
+enzyme_list <- read.csv("ec_files_expasy/enzyme.csv")
+enzyme_list$feature <- paste("EC_",enzyme_list$EC_number, sep = "")
+enzyme_list$feature <- gsub("\\.","_", enzyme_list$feature)
+enzyme_list <- enzyme_list[,2:3]
+activeC_info <- activeC_shared %>% 
+  left_join(enzyme_list, by = "feature")
+
+# get NAs in EC_name to be the correct
+activeC_info[50,4] <- "Dfc"
+
+# ID features in our soil gibbs list
+activeC_info <- activeC_info %>% 
+  left_join(enzyme_gibbs, by = "feature")
+activeC_info$Category <- activeC_info$Category %>% 
+  replace_na("Unknown")
+
+# graph all important features with gibbs features highlighted
+# there are no gibbs features in this one
+p1 <- ggplot(activeC_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = Category)) +
+  geom_bar(stat = "identity", width = .5) +
+  scale_fill_manual(values = c("#B5B5B5")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "Active C Important Features",
+       y = "Average Importance Across 25 Models")
+p1
+ggsave("figures/feat_importance_EC_ACTIVEC.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
 ```
 
+
+
+
+##### edit here and below
 # Aggregate Stability
 ```{r}
 # make list of file names
@@ -579,6 +591,7 @@ watercap_shared$indicator <- "WATERCAP"
 ```
 
 ### Combine shared features for all indicators
+######## edit graphing of this later - need to fill bars by gibbs soil list category like above
 ```{r}
 # still need to add disturbance, richness, and semwise once they are done in scinet
 

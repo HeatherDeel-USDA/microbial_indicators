@@ -13,9 +13,8 @@ library(party)
 library(tidyverse)
 
 ml_TAX_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/ml_TAX_16S.RDS")
-#ml_TAX_16S <- readRDS("machine_learning/16S_TAX/ml_TAX_16S.RDS")
 
-ml_TAX_16S_ROOT <- ml_TAX_16S[,c(70,104:110,99,152:7614)]
+ml_TAX_16S_ROOT <- ml_TAX_16S[,c(70,102,99,152:7614)]
 
 # filter NAs
 ml_TAX_16S_ROOT$clay <- as.numeric(ml_TAX_16S_ROOT$clay)
@@ -33,8 +32,10 @@ train <- ml_TAX_16S_ROOT %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_TAX_16S_ROOT, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:7472)]
-test <- test[,c(1:7472)]
+train <- train[,c(1:7466)]
+test <- test[,c(1:7466)]
+train$ClimateZ <- as.factor(train$ClimateZ)
+test$ClimateZ <- as.factor(test$ClimateZ)
 
 p = nrow(train)/3
 
@@ -48,7 +49,7 @@ cf.pred <- predict(cf.root, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "root.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.root <- data.frame(test[,9])
+test.root <- data.frame(test[,3])
 colnames(test.root)[1] <- "root.obs"
 test.root <- rownames_to_column(test.root, var = "id")
 cf.pvso <- merge(cf.pred, test.root, by = "id")
@@ -82,4 +83,3 @@ write.table(cbind(task_num,r2_val,p_val),
 # variable importances
 root.imp <- party::varimp(object = cf.root, conditional = TRUE)
 write.csv(root.imp, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_TAX/ROOT_model_results_clay_climate/ROOT_TAX_var_importance", args[1], ".csv", sep = ""), row.names = TRUE)
-
