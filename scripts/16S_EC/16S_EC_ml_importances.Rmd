@@ -71,7 +71,9 @@ p1 <- ggplot(ace_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = C
   labs(x = "ACE Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_ACE.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ACE.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ACE.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
+
 ```
 
 # ACTIVE C
@@ -125,7 +127,8 @@ p1 <- ggplot(activeC_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill
   labs(x = "Active C Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_ACTIVEC.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ACTIVEC.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ACTIVEC.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Aggregate Stability
@@ -181,7 +184,8 @@ p1 <- ggplot(aggstab_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill
   labs(x = "Aggregate Stability Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_AGGSTAB.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_AGGSTAB.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_AGGSTAB.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # CASH
@@ -235,7 +239,8 @@ p1 <- ggplot(cash_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "CASH Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_CASH.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_CASH.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_CASH.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Disturbance
@@ -288,7 +293,8 @@ p1 <- ggplot(dist_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "Disturbance Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_DIST.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_DIST.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_DIST.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Respiration
@@ -341,7 +347,8 @@ p1 <- ggplot(resp_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "Respiration Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_RESP.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_RESP.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_RESP.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Richness
@@ -394,7 +401,8 @@ p1 <- ggplot(rich_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "Richness Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_RICH.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_RICH.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_RICH.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Roots
@@ -447,7 +455,8 @@ p1 <- ggplot(root_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "Root Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_ROOT.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ROOT.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_ROOT.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # SEMWISE
@@ -500,7 +509,8 @@ p1 <- ggplot(semwise_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill
   labs(x = "SEMWISE Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_SEMWISE.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SEMWISE.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SEMWISE.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # SHMI
@@ -553,7 +563,8 @@ p1 <- ggplot(shmi_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = 
   labs(x = "SHMI Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_SHMI.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SHMI.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SHMI.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # SOM
@@ -607,7 +618,8 @@ p1 <- ggplot(som_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fill = C
   labs(x = "SOM Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_SOM.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SOM.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_SOM.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 # Water capacity
@@ -661,7 +673,8 @@ p1 <- ggplot(watercap_info, aes(x = reorder(EC_name, -avg_imp), y = avg_imp, fil
   labs(x = "Water Capacity Important Features",
        y = "Average Importance Across 25 Models")
 p1
-ggsave("figures/feat_importance_EC_WATERCAP.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_WATERCAP.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_WATERCAP.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 ### Combine shared features for all indicators
@@ -706,7 +719,8 @@ p1 <- ggplot(ECs_all_info_filt, aes(x = reorder(EC_name, -num_indic_imp), y = nu
   labs(x = "Features Important in Four or More Indicators",
        y = "Number of Indicators Feature is Important In")
 p1
-ggsave("figures/feat_importance_EC_all.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_all.pdf", unit = "in", width = 10, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/feat_importance_EC_all.tiff", unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
 ```
 
 
