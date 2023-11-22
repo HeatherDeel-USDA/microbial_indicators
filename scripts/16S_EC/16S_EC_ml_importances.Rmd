@@ -684,7 +684,7 @@ list_EC_dfs <- list(ace_shared, activeC_shared, aggstab_shared, cash_shared,
                     semwise_shared, shmi_shared, som_shared, watercap_shared)
 ECs_shared <- list_EC_dfs %>% reduce(inner_join, by = "feature")
 
-# there are no features shared by all 25 models for all indicators
+# the only important feature shared by all 25 models in all indicators is climate
 # do a full join and count the number of indicators each feature is important in
 
 ECs_all <- list_EC_dfs %>% reduce(full_join, by = "feature")
