@@ -11,7 +11,7 @@ library(dplyr)
 library(party)
 library(tidyverse)
 
-ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/NAME OF RA FILE")
+ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_RA.RDS")
 
 # change column numbers as necessary
 # include all ECs and SH_rating
