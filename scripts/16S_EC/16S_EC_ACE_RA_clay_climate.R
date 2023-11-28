@@ -11,11 +11,12 @@ library(dplyr)
 library(party)
 library(tidyverse)
 
-ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/ml_EC_RA.RDS")
+ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_RA.RDS")
+ml_EC_16S <- readRDS("machine_learning/EC_RA/ml_EC_RA.RDS")
 
 # change column numbers as necessary
 # include all ECs, clay, ClimateZ, and ace
-ml_EC_16S_ACE <- ml_EC_16S[,c(2:2445,2515,2547,2522)]
+ml_EC_16S_ACE <- ml_EC_16S[,c(3:2438,2508,2539,2515)]
 
 # filter NAs
 ml_EC_16S_ACE$clay <- as.numeric(ml_EC_16S_ACE$clay)
@@ -33,8 +34,8 @@ train <- ml_EC_16S_ACE %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_EC_16S_ACE, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:2447)]
-test <- test[,c(1:2447)]
+train <- train[,c(1:2439)]
+test <- test[,c(1:2439)]
 train$ClimateZ <- as.factor(train$ClimateZ)
 test$ClimateZ <- as.factor(test$ClimateZ)
 
@@ -50,7 +51,7 @@ cf.pred <- predict(cf.ace, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "ace.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.ace <- data.frame(test[,2447])
+test.ace <- data.frame(test[,2439])
 colnames(test.ace)[1] <- "ace.obs"
 test.ace <- rownames_to_column(test.ace, var = "id")
 cf.pvso <- merge(cf.pred, test.ace, by = "id")

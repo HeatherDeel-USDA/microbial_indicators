@@ -1,0 +1,858 @@
+---
+title: "Random Forest"
+author: "Heather Deel"
+date: "2023-08-07"
+output: html_document
+---
+
+### Setup and packages
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+### Load and format 16S data
+```{r}
+### Hops.2018
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('../../picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../../picrust2_files/Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../../machine_learning/EC_RA/hops2018_ml_EC_RA.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../../machine_learning/EC_RA_corr/hops2018_ml_EC_RA_corr.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_Total_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_Total_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../../machine_learning/EC_Total_corr/hops2018_ml_EC_Total_corr.RDS")
+
+
+### Hops.ARS
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('../../picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../../picrust2_files/Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
+
+saveRDS(hopsARS_ml, "../../machine_learning/EC_RA/hopsARS_ml_EC_RA.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
+
+saveRDS(hopsARS_ml, "../../machine_learning/EC_RA_corr/hopsARS_ml_EC_RA_corr.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_Total_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_Total_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
+
+saveRDS(hopsARS_ml, "../../machine_learning/EC_Total_corr/hopsARS_ml_EC_Total_corr.RDS")
+
+
+
+### NRCS
+# split NRCS data into two to keep R from crashing
+func <- read.delim('../../picrust2_files/NRCS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../../picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+NRCS_all <- merge(data.merged, otu, by = "SampleID")
+NRCS_all <- as.data.frame(NRCS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
+
+saveRDS(NRCS_ml, "../../machine_learning/EC_RA/NRCS_ml_EC_RA.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+NRCS_all <- merge(data.merged, otu, by = "SampleID")
+NRCS_all <- as.data.frame(NRCS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
+
+saveRDS(NRCS_ml, "../../machine_learning/EC_RA_corr/NRCS_ml_EC_RA_corr.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_Total_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_Total_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+NRCS_all <- merge(data.merged, otu, by = "SampleID")
+NRCS_all <- as.data.frame(NRCS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
+
+saveRDS(NRCS_ml, "../../machine_learning/EC_Total_corr/NRCS_ml_EC_Total_corr.RDS")
+
+
+
+### Rangeland
+# we don't need the full phyloseq from before, so reimporting
+func <- read.delim('../../picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('../../picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# get qPCR data into func
+# need to read in raw qPCR values
+qPCR_data <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.qPCR.txt', sep = '\t')
+qPCR_data <- qPCR_data %>% 
+  filter(!is.na(qPCR))
+
+func <- merge(func, qPCR_data, by = "sample")
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+Rangeland_all <- merge(data.merged, otu, by = "SampleID")
+Rangeland_all <- as.data.frame(Rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
+
+saveRDS(Rangeland_ml, "../../machine_learning/EC_RA/Rangeland_ml_EC_RA.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+Rangeland_all <- merge(data.merged, otu, by = "SampleID")
+Rangeland_all <- as.data.frame(Rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
+
+saveRDS(Rangeland_ml, "../../machine_learning/EC_RA_corr/Rangeland_ml_EC_RA_corr.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_Total_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count * func$qPCR
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_Total_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+Rangeland_all <- merge(data.merged, otu, by = "SampleID")
+Rangeland_all <- as.data.frame(Rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
+
+saveRDS(Rangeland_ml, "../../machine_learning/EC_Total_corr/Rangeland_ml_EC_Total_corr.RDS")
+
+
+
+
+### final formatting of ml_16S object
+
+# merge ml dfs for Hops.2018 Hops.ARS, NRCS1, NRCS2, and Rangeland
+hops2018_ml <- readRDS("../../machine_learning/EC_RA/hops2018_ml_EC_RA.RDS")
+hopsARS_ml <- readRDS("../../machine_learning/EC_RA/hopsARS_ml_EC_RA.RDS")
+NRCS_ml <- readRDS("../../machine_learning/EC_RA/NRCS_ml_EC_RA.RDS")
+rangeland_ml <- readRDS("../../machine_learning/EC_RA/rangeland_ml_EC_RA.RDS")
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS_ml, ml_1, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_2, all = TRUE)
+
+# actually need to add back in other metadata columns - would take too long to reprocess and save everything
+# reread in files from local environment
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# merge ml_all2 with data.merged
+ml_all_meta <- merge(ml_all, data.merged, by = c("SampleID","Overall"))
+
+# get rid of duplicate "Overall" column
+#ml_all_meta <- ml_all_meta[c(1,3:ncol(ml_all_meta))]
+#colnames(ml_all_meta)[2539] = "Overall"
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all_meta[is.na(ml_all_meta)] <- 0
+
+# check for any NAs
+sum(is.na(ml_all_meta))
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+#ml_all_meta <- ml_all_meta[c(1:314,316:537),]
+
+# data ready
+saveRDS(ml_all_meta, '../../machine_learning/EC_RA/ml_EC_RA.RDS')
+
+
+# next set
+hops2018_ml <- readRDS("../../machine_learning/EC_RA_corr/hops2018_ml_EC_RA_corr.RDS")
+hopsARS_ml <- readRDS("../../machine_learning/EC_RA_corr/hopsARS_ml_EC_RA_corr.RDS")
+NRCS_ml <- readRDS("../../machine_learning/EC_RA_corr/NRCS_ml_EC_RA_corr.RDS")
+rangeland_ml <- readRDS("../../machine_learning/EC_RA_corr/rangeland_ml_EC_RA_corr.RDS")
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS_ml, ml_1, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_2, all = TRUE)
+
+# actually need to add back in other metadata columns - would take too long to reprocess and save everything
+# reread in files from local environment
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# merge ml_all2 with data.merged
+ml_all_meta <- merge(ml_all, data.merged, by = c("SampleID","Overall"))
+
+# get rid of duplicate "Overall" column
+#ml_all_meta <- ml_all_meta[c(1,3:2596)]
+#colnames(ml_all_meta)[2539] = "Overall"
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all_meta[is.na(ml_all_meta)] <- 0
+
+# check for any NAs
+sum(is.na(ml_all_meta))
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+#ml_all_meta <- ml_all_meta[c(1:314,316:537),]
+
+# data ready
+saveRDS(ml_all_meta, '../../machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+
+
+
+
+hops2018_ml <- readRDS("../../machine_learning/EC_Total_corr/hops2018_ml_EC_Total_corr.RDS")
+hopsARS_ml <- readRDS("../../machine_learning/EC_Total_corr/hopsARS_ml_EC_Total_corr.RDS")
+NRCS_ml <- readRDS("../../machine_learning/EC_Total_corr/NRCS_ml_EC_Total_corr.RDS")
+rangeland_ml <- readRDS("../../machine_learning/EC_Total_corr/rangeland_ml_EC_Total_corr.RDS")
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS_ml, ml_1, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_2, all = TRUE)
+
+# actually need to add back in other metadata columns - would take too long to reprocess and save everything
+# reread in files from local environment
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# merge ml_all2 with data.merged
+ml_all_meta <- merge(ml_all, data.merged, by = c("SampleID","Overall"))
+
+# get rid of duplicate "Overall" column
+#ml_all_meta <- ml_all_meta[c(1,3:2596)]
+#colnames(ml_all_meta)[2539] = "Overall"
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all_meta[is.na(ml_all_meta)] <- 0
+
+# check for any NAs
+sum(is.na(ml_all_meta))
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+#ml_all_meta <- ml_all_meta[c(1:314,316:537),]
+
+# data ready
+saveRDS(ml_all_meta, '../../machine_learning/EC_Total_corr/ml_EC_Total_corr.RDS')
+
+```
+
+
+```{r}
+P <- readRDS('../../machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+
+data <- P[,c(3:2438)]
+meta <- P[,c(1,2439:ncol(P))]
+
+ord <- dbrda(vegdist(data, method='bray') ~ 1)
+
+#data <- P[,c("water_cap", "agg_stab", "SOM", "ace", "resp", "activeC")]
+#ord <- rda(data)
+
+### get eigenvalues and proportion explained
+ev <- eigenvals(ord)
+Axis1_exp = round(ev[1] / sum(ev) * 100, 1)
+Axis2_exp = round(ev[2] / sum(ev) * 100, 1)
+
+### get PC axes
+axes <- as.data.frame(scores(ord, display="sites", choices=c(1:2)))
+names(axes) <- c("Axis1", "Axis2")
+axes <- cbind(meta, axes)
+
+### create ggplot
+colVec1 <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#A65628", "grey")
+
+mult <- 1
+
+axes$ClimateZ <- factor(axes$ClimateZ)
+axes$Current_Land_Use <- factor(axes$Current_Land_Use)
+
+sub <- axes[!(axes$ClimateZ %in% c('BSk', 'Csb')),]
+
+p <- ggplot(data=axes, aes(x=Axis1, y=Axis2))
+p <- p + geom_point(aes(fill=ClimateZ), color='black', size=6, shape=21)
+p <- p + scale_fill_manual(values=colVec1, name='ClimateZ')
+p <- p + stat_ellipse(geom = "path", type="t", level=0.95, aes(color=ClimateZ), show.legend=FALSE)
+p <- p + scale_color_manual(values=colVec1)
+p <- p + guides(size="none",
+                fill = guide_legend(override.aes = list(size = 5, shape=21)))
+p <- p + theme_bw()
+p
+
+```
+
+
+```{r}
+# libraries
+library(dplyr)
+library(party)
+library(tidyverse)
+library(glmnet)
+library(edarf)
+
+ml_EC_16S <- readRDS('../../machine_learning/EC_Total_corr/ml_EC_Total_corr.RDS')
+ml_EC_16S <- ml_EC_16S %>%
+  filter(str_detect(SampleID, "^NRCS"))
+
+# lasso regression
+y <- ml_EC_16S$ace
+x <- data.matrix(ml_EC_16S[,grep("EC:", colnames(ml_EC_16S)),])
+cv_model <- cv.glmnet(x, y, alpha = 1)
+best_lambda <- cv_model$lambda.min
+best_lambda
+plot(cv_model) 
+best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+coeffs <- as.matrix(coef(best_model))
+keep_X <- as.vector(rownames(coeffs)[coeffs!=0])[-1]
+
+# get selected predictors
+ml_EC_16S_ACE <- ml_EC_16S %>%
+  select(keep_X, ace)
+
+# filter NAs
+ml_EC_16S_ACE$ace <- as.numeric(ml_EC_16S_ACE$ace)
+ml_EC_16S_ACE <- ml_EC_16S_ACE %>%
+  filter(!is.na(ace))
+
+# format so : and . are replaced by _ (for varimp)
+names(ml_EC_16S_ACE) <- gsub(":","_", names(ml_EC_16S_ACE))
+names(ml_EC_16S_ACE) <- gsub("\\.","_", names(ml_EC_16S_ACE))
+
+for (myRun in seq(1,25,1)) {
+  print(paste0("Starting run: ", myRun))
+  # split into train and test (4/5 proportion)
+  ml_EC_16S_ACE$id <- 1:nrow(ml_EC_16S_ACE)
+  train <- ml_EC_16S_ACE %>% dplyr::sample_frac(0.80)
+  test <- dplyr::anti_join(ml_EC_16S_ACE, train, by = 'id')
+  
+  # get rid of id columns
+  train <- train %>% select(-id)
+  test <- test %>% select(-id)
+  
+  # cforest on training data
+  my_cforest_control <- cforest_control(teststat = "quad",
+      testtype = "Univ", mincriterion = 0, ntree = 500, mtry = 3,
+      replace = FALSE)
+  
+  cf.ace <- cforest(ace ~ ., data = train,
+                    controls = my_cforest_control)
+  #saveRDS(cf.ace, paste("../../dan_out/ACE_EC_RA_cf", myRun, ".RDS", sep = ""))
+  
+  cf.pred <- predict(cf.ace, newdata = test, OOB = TRUE, type = "response")
+  
+  # observed vs predicted
+  colnames(cf.pred)[1] <- "ace.pred"
+  cf.pred <- data.frame(cf.pred)
+  cf.pred <- rownames_to_column(cf.pred, var = "id")
+  test.ace <- data.frame(test[,'ace'])
+  colnames(test.ace)[1] <- "ace.obs"
+  test.ace <- rownames_to_column(test.ace, var = "id")
+  cf.pvso <- merge(cf.pred, test.ace, by = "id")
+  
+  #saveRDS(cf.pvso, paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".RDS", sep = ""))
+  
+  ACE_lm <- lm(ace.obs ~ ace.pred, data = cf.pvso)
+  p1 <- ggplot(ACE_lm$model, aes(x = ace.obs, y = ace.pred)) +
+    geom_point() +
+    stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+    labs(title = paste("Adj R2 =",signif(summary(ACE_lm)$adj.r.squared, 2),
+                       " P =",signif(summary(ACE_lm)$coef[2,4], 2)),
+         x = "Observed ACE", y = "Predicted ACE") +
+    theme_bw()
+  p1
+  
+  #ggsave(paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".png", sep = ""), 
+  #       unit = "in", width = 6, height = 6, dpi = 300, device = "png")
+  
+  # save R^2 and p-values to a file
+  r2_val <- summary(ACE_lm)$adj.r.squared
+  p_val <- summary(ACE_lm)$coef[2,4]
+  
+  write.table(cbind(myRun, r2_val, p_val), 
+              file = "../../dan_out/ACE_EC_Total_corr_stats.csv", 
+              col.names = c("task_number","r2_val","p_val"),
+              append = TRUE, sep = ",", row.names = FALSE)
+  
+  # variable importances
+  ace.imp <- varimp(cf.ace)
+  ace.imp <- as.data.frame(ace.imp)
+  names(ace.imp) <- 'vimp'
+  ace.imp <- ace.imp %>% arrange(desc(vimp))
+  ace.imp <- tibble::rownames_to_column(ace.imp, "EC")
+  ace.imp$Run <- myRun
+  
+  write.table(ace.imp, 
+              file = "../../dan_out/ACE_EC_Total_corr_varimp.csv",
+              append = TRUE, sep = ",", row.names = FALSE)
+  
+  #pd <- edarf::partial_dependence(cf.ace, ace.imp$EC[1:3], interaction=FALSE)
+  #p <- edarf::plot_pd(pd)
+  #ggsave(paste("../../dan_out/ACE_EC_RA_corr_pd", myRun, ".png", sep = ""), 
+  #       unit = "in", width = 8, height = 8, dpi = 300, device = "png")
+  print(paste0("Finished run: ", myRun))
+}
+
+
+
+```
+
