@@ -32,8 +32,8 @@ train <- ml_EC_16S_SEMWISE %>% dplyr::sample_frac(0.80)
 test <- dplyr::anti_join(ml_EC_16S_SEMWISE, train, by = 'id')
 
 # get rid of id columns
-train <- train[,c(1:2439)]
-test <- test[,c(1:2439)]
+train <- train[,c(1:2437)]
+test <- test[,c(1:2437)]
 
 p = nrow(train)/3
 
@@ -47,7 +47,7 @@ cf.pred <- predict(cf.SH_rating, newdata = test, OOB = TRUE, type = "response")
 colnames(cf.pred)[1] <- "SH_rating.pred"
 cf.pred <- data.frame(cf.pred)
 cf.pred <- rownames_to_column(cf.pred, var = "id")
-test.SH_rating <- data.frame(test[,2439])
+test.SH_rating <- data.frame(test[,2437])
 colnames(test.SH_rating)[1] <- "SH_rating.obs"
 test.SH_rating <- rownames_to_column(test.SH_rating, var = "id")
 cf.pvso <- merge(cf.pred, test.SH_rating, by = "id")
