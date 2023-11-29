@@ -699,10 +699,21 @@ saveRDS(ml_all_meta, '../../machine_learning/EC_Total_corr/ml_EC_Total_corr.RDS'
 
 
 ```{r}
+library(M3C)
+
 P <- readRDS('../../machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
 
 data <- P[,c(3:2438)]
 meta <- P[,c(1,2439:ncol(P))]
+
+library(M3C)
+p <- M3C::tsne(t(data), labels=FALSE, dotsize = 0) + theme_bw() +
+  geom_point(aes(fill=meta$ClimateZ, shape=meta$Current_Land_Use), size=4) +
+  scale_shape_manual(values=c(21,22,23,24)) +
+  guides(size="none",
+         fill = guide_legend(override.aes = list(size = 4, shape=21))) +
+  labs(fill="ClimateZ", shape="Land Use")
+p
 
 ord <- dbrda(vegdist(data, method='bray') ~ 1)
 
@@ -751,11 +762,10 @@ library(Boruta)
 library(moreparty)
 library(permimp)
 
-#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'SH_rating', 'Overall', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-myVars <- c('SH_rating', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
-myDatas <- c('EC_RA', 'EC_RA_corr', 'EC_Total_corr', 'TAX_RA')
-#myData <- 'TAX_RA'
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'SH_rating', 'Overall', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+#myDatas <- c('EC_RA', 'EC_RA_corr', 'EC_Total_corr', 'TAX_RA', 'TAX_Total')
+myDatas <- 'TAX_RA'
 
 for (myVar in myVars) {
   for (myData in myDatas) {
@@ -831,15 +841,14 @@ for (myVar in myVars) {
       #saveRDS(cf.pvso, paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".RDS", sep = ""))
       
       res.lm <- lm(obs ~ pred, data = cf.pvso)
-      p1 <- ggplot(cf.pvso, aes(x = obs, y = pred)) +
-        geom_point() +
-        stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-        labs(title = paste("Adj R2 =",signif(summary(res.lm)$adj.r.squared, 2),
-                           " P =",signif(summary(res.lm)$coef[2,4], 2)),
-             x = "Observed", y = "Predicted") +
-        theme_bw()
-      p1
-      
+      #p1 <- ggplot(cf.pvso, aes(x = obs, y = pred)) +
+      #  geom_point() +
+      #  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
+      #  labs(title = paste("Adj R2 =",signif(summary(res.lm)$adj.r.squared, 2),
+      #                     " P =",signif(summary(res.lm)$coef[2,4], 2)),
+      #       x = "Observed", y = "Predicted") +
+      #  theme_bw()
+
       #ggsave(paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".png", sep = ""), 
       #       unit = "in", width = 6, height = 6, dpi = 300, device = "png")
       
@@ -853,28 +862,28 @@ for (myVar in myVars) {
                   append = TRUE, sep = ",", row.names = FALSE)
       
       # # variable importances
-      # imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
+      #imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
       #                        conditional=FALSE, threshold=0.2, asParty=FALSE,
       #                        thresholdDiagnostics = FALSE, progressBar = TRUE)
-      # 
-      # imp <- as.data.frame(imp$values)
-      # names(imp) <- 'vimp'
-      # imp <- imp %>% arrange(desc(vimp))
-      # imp <- tibble::rownames_to_column(imp, "EC")
-      # imp$Run <- myRun
-      # 
-      # write.table(imp, 
-      #             file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
-      #            col.names=FALSE,
-      #            append = TRUE, sep = ",", row.names = FALSE)
-      # 
-      # pd <- GetPartialData(cf.train, xnames=imp$EC[2], quantiles=FALSE, grid.resolution = 10)
-      # ggForestEffects(pd, vline=0, xlabel="", ylabel="", main="")
-      # 
-      # pd <- edarf::partial_dependence(cf.train, imp$EC[2], interaction=FALSE)
-      # #p <- edarf::plot_pd(pd)
-      # ggsave(paste("../../dan_out/", myVar, "_", myData, "_pd", myRun, ".png", sep = ""), 
-      #        unit = "in", width = 8, height = 8, dpi = 300, device = "png")
+       
+      #imp <- as.data.frame(imp$values)
+      #names(imp) <- 'vimp'
+      #imp <- imp %>% arrange(desc(vimp))
+      #imp <- tibble::rownames_to_column(imp, "EC")
+      #imp$Run <- myRun
+       
+      #write.table(imp, 
+      #           file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
+      #          col.names=FALSE,
+      #          append = TRUE, sep = ",", row.names = FALSE)
+       
+      #pd <- GetPartialData(cf.train, xnames=imp$EC[2], quantiles=FALSE, grid.resolution = 10)
+      #ggForestEffects(pd, vline=0, xlabel="", ylabel="", main="")
+       
+      #pd <- edarf::partial_dependence(cf.train, imp$EC[2], interaction=FALSE)
+      #p <- edarf::plot_pd(pd)
+      #ggsave(paste("../../dan_out/", myVar, "_", myData, "_pd", myRun, ".png", sep = ""), 
+      #      unit = "in", width = 8, height = 8, dpi = 300, device = "png")
     
     }
   }
