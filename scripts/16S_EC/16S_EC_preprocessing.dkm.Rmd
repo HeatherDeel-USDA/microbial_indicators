@@ -763,7 +763,7 @@ library(moreparty)
 library(permimp)
 
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'SH_rating', 'Overall', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn', 'SH_rating', 'Overall')
 #myVars <- 'ph'
 #myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA', 'EC_RA_corr', 'EC_Total_corr')
 myDatas <- 'EC_Total_corr'
