@@ -35,7 +35,7 @@ test <- dplyr::anti_join(ml_EC_16S_ACE, train, by = 'id')
 train <- train[,c(1:2437)]
 test <- test[,c(1:2437)]
 
-p = nrow(train)/3
+p = ncol(train)/3
 
 # cforest on training data
 cf.ace <- cforest(ace ~ ., data = train,

@@ -91,5 +91,32 @@ ggsave("figures/ml_ec_tax_r2.pdf", unit = "in", width = 8, height = 4, dpi = 300
 ggsave("figures/ml_ec_tax_r2.tiff", unit = "in", width = 8, height = 4, dpi = 300, device = "tiff")
 ```
 
+### Boxplot of R^2 values for ACE and SEMWISE testing
+```{r}
+ml_stats <- read_xlsx("machine_learning/16S_EC/ml_EC_stats_ACE_SEMWISE.xlsx")
+
+stat.test <- compare_means(r2_val ~ model_type,
+                           data = ml_stats,
+                           method = 'wilcox.test',
+                           p.adj = 'fdr')
+stat.test$Comparison <- paste0(stat.test$group1, " - ", stat.test$group2)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+  
+groups$y <- 0.9
+
+p1 <- ggplot(ml_stats, aes(x=model_type, y=r2_val)) + 
+  geom_boxplot(fill='grey') + 
+  labs(y='R^2 Values', x='Prediction Type', title = "EC Model Prediction Accuracy") + 
+  theme_bw() + 
+  ylim(0,0.90) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=Letter)) # add significances
+p1
+
+ggsave("figures/ml_ACE_SEMWISE_r2.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/ml_ACE_SEMWISE_r2.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+```
 
 
