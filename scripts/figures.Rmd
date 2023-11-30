@@ -1,0 +1,92 @@
+---
+title: "Machine Learning Graphing"
+author: "Heather Deel"
+date: "2023-09-18"
+output: html_document
+---
+
+### Libraries
+```{r}
+library(ggplot2)
+library(readxl)
+library(ggpubr)
+```
+
+### Comparison of taxonomic and EC relative abundance and total data
+```{r}
+# compare the r^2 distributions of 1-25 models
+
+```
+
+### Boxplot of R^2 values for each indicator
+```{r}
+
+```
+
+### Boxplots of feature importance distributions
+```{r}
+# do this for each indicator
+```
+
+### Partial dependence plots
+```{r}
+# show response of important features to each indicator
+```
+
+
+
+
+
+
+
+
+
+
+
+
+########## Previous code to use for copying, delete later
+### Boxplot of EC R^2 values
+```{r}
+ml_stats <- read_xlsx("machine_learning/16S_EC/ml_EC_stats_all.xlsx")
+
+stat.test <- compare_means(r2_val ~ model_type,
+                           data = ml_stats,
+                           method = 'wilcox.test',
+                           p.adj = 'fdr')
+stat.test$Comparison <- paste0(stat.test$group1, " - ", stat.test$group2)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+  
+groups$y <- 0.9
+
+# reordering from highest to lowest r^2 values
+ml_stats$model_type <- factor(ml_stats$model_type, levels = c('ACE','SOM','SHMI',
+                                                              'ACTIVEC','RESP','DIST',
+                                                              'WATERCAP','ROOT','AGGSTAB',
+                                                              'CASH','SEMWISE','RICH'))
+
+p1 <- ggplot(ml_stats, aes(x=model_type, y=r2_val)) + 
+  geom_boxplot(fill='grey') + 
+  labs(y='R^2 Values', x='Prediction Type', title = "EC Model Prediction Accuracy") + 
+  theme_bw() + 
+  ylim(0,0.90) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=Letter)) # add significances
+p1
+
+ggsave("figures/ml_ec_r2.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+```
+
+### Merge EC and tax graphs to compare
+```{r}
+ec_tax_r2 <- ggarrange(p1, p2,
+                    labels = c("A", "B"),
+                    ncol = 2, nrow = 1)
+ec_tax_r2
+
+ggsave("figures/ml_ec_tax_r2.pdf", unit = "in", width = 8, height = 4, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_tax_r2.tiff", unit = "in", width = 8, height = 4, dpi = 300, device = "tiff")
+```
+
