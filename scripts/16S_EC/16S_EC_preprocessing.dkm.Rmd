@@ -152,6 +152,43 @@ hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
 saveRDS(hops2018_ml, "../../machine_learning/EC_Total_corr/hops2018_ml_EC_Total_corr.RDS")
 
 
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=-sum(EC_RA*log(EC_RA)))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../../machine_learning/EC_H/hops2018_ml_EC_H.RDS")
+
+
+
 ### Hops.ARS
 # we don't need the full phyloseq from before, so reimporting
 func <- read.delim('../../picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
@@ -290,6 +327,42 @@ hopsARS_all <- as.data.frame(hopsARS_all)
 hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
 
 saveRDS(hopsARS_ml, "../../machine_learning/EC_Total_corr/hopsARS_ml_EC_Total_corr.RDS")
+
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=-sum(EC_RA*log(EC_RA)))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../../machine_learning/EC_H/hopsARS_ml_EC_H.RDS")
 
 
 
@@ -433,6 +506,42 @@ NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
 saveRDS(NRCS_ml, "../../machine_learning/EC_Total_corr/NRCS_ml_EC_Total_corr.RDS")
 
 
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=-sum(EC_RA*log(EC_RA)))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+NRCS_all <- merge(data.merged, otu, by = "SampleID")
+NRCS_all <- as.data.frame(NRCS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
+
+saveRDS(NRCS_ml, "../../machine_learning/EC_H/NRCS_ml_EC_H.RDS")
+
+
 
 ### Rangeland
 # we don't need the full phyloseq from before, so reimporting
@@ -574,10 +683,45 @@ Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
 saveRDS(Rangeland_ml, "../../machine_learning/EC_Total_corr/Rangeland_ml_EC_Total_corr.RDS")
 
 
+# we imported un-normalized counts, so normalizing here
+func$EC_RA <- func$taxon_rel_abun / 100
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=-sum(EC_RA*log(EC_RA)))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+Rangeland_all <- merge(data.merged, otu, by = "SampleID")
+Rangeland_all <- as.data.frame(Rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
+
+saveRDS(Rangeland_ml, "../../machine_learning/EC_H/Rangeland_ml_EC_H.RDS")
+
+
 
 
 ### final formatting of ml_16S object
-
 # merge ml dfs for Hops.2018 Hops.ARS, NRCS1, NRCS2, and Rangeland
 hops2018_ml <- readRDS("../../machine_learning/EC_RA/hops2018_ml_EC_RA.RDS")
 hopsARS_ml <- readRDS("../../machine_learning/EC_RA/hopsARS_ml_EC_RA.RDS")
@@ -695,6 +839,46 @@ sum(is.na(ml_all_meta))
 # data ready
 saveRDS(ml_all_meta, '../../machine_learning/EC_Total_corr/ml_EC_Total_corr.RDS')
 
+
+
+
+hops2018_ml <- readRDS("../../machine_learning/EC_H/hops2018_ml_EC_H.RDS")
+hopsARS_ml <- readRDS("../../machine_learning/EC_H/hopsARS_ml_EC_H.RDS")
+NRCS_ml <- readRDS("../../machine_learning/EC_H/NRCS_ml_EC_H.RDS")
+rangeland_ml <- readRDS("../../machine_learning/EC_H/rangeland_ml_EC_H.RDS")
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS_ml, ml_1, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_2, all = TRUE)
+
+# actually need to add back in other metadata columns - would take too long to reprocess and save everything
+# reread in files from local environment
+data.sampleID <- read.delim('../../metadata/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('../../metadata/data.pred.SHMI.RDS')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# merge ml_all2 with data.merged
+ml_all_meta <- merge(ml_all, data.merged, by = c("SampleID","Overall"))
+
+# get rid of duplicate "Overall" column
+#ml_all_meta <- ml_all_meta[c(1,3:2596)]
+#colnames(ml_all_meta)[2539] = "Overall"
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all_meta[is.na(ml_all_meta)] <- 0
+
+# check for any NAs
+sum(is.na(ml_all_meta))
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+#ml_all_meta <- ml_all_meta[c(1:314,316:537),]
+
+# data ready
+saveRDS(ml_all_meta, '../../machine_learning/EC_H/ml_EC_H.RDS')
+
 ```
 
 
@@ -764,12 +948,15 @@ library(permimp)
 
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn', 'SH_rating', 'Overall')
-#myVars <- 'ph'
+
 #myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA', 'EC_RA_corr', 'EC_Total_corr')
-myDatas <- 'EC_Total_corr'
+myDatas <- 'EC_RA_corr'
 
 for (myVar in myVars) {
+  print(paste0("Variable:", myVar))
+  
   for (myData in myDatas) {
+
     ml_EC_16S <- readRDS(paste0('../../machine_learning/', myData, '/ml_', myData, '.RDS'))
   
     if (myData %in% c("TAX_RA", "TAX_Total")) {
@@ -782,26 +969,47 @@ for (myVar in myVars) {
       names(data)[2] <- 'ClimateZ'
       names(data)[3] <- 'clay'
     } else {
-      data <- ml_EC_16S %>%
-        select(grep("EC:", colnames(ml_EC_16S)), ClimateZ, clay, myVar)
+      data <- ml_EC_16S %>% select(grep("EC:", colnames(ml_EC_16S)))
+      df.myVar <- as.vector(ml_EC_16S[,myVar])
+      df.climate <- as.vector(ml_EC_16S[,'ClimateZ'])
+      df.clay <- as.vector(ml_EC_16S[,'clay'])
+      data <- cbind(df.myVar, df.climate, df.clay, data)
+      names(data)[1] <- myVar
+      names(data)[2] <- 'ClimateZ'
+      names(data)[3] <- 'clay'
     }
-    
     
     # format so : and . are replaced by _ (for varimp)
     names(data) <- gsub(":","_", names(data))
     names(data) <- gsub("\\.","_", names(data))
   
-    myFormula <- as.formula(paste0(myVar, ' ~ .'))
-    Boruta.res <- Boruta(myFormula, data=data)
-    myFormula <- getConfirmedFormula(Boruta.res)
-    keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision == "Confirmed"])
-    keep_X
+    # Select using Boruta
+    #myFormula <- as.formula(paste0(myVar, ' ~ .'))
+    #Boruta.res <- Boruta(myFormula, data=data)
+    #myFormula <- getConfirmedFormula(Boruta.res)
+    #keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision == "Confirmed"])
+    
+    # GIBBs enzymes 
+    # 'EC_1_10_3_2' & 'EC_1_7_1_4' don't exist
+    keep_X <- c('EC_1_4_99_5', 'EC_4_1_1_5', 'EC_1_1_1_76', 'EC_3_2_1_6', 'EC_3_2_1_14', 
+                'EC_2_6_1_86', 'EC_4_1_1_74', 'EC_3_5_99_7', 'EC_5_4_4_2', 'EC_4_2_99_21', 
+                'EC_3_3_2_1', 'EC_1_3_1_28', 'EC_3_2_1_21', 'EC_3_2_1_20', 'EC_3_2_1_91', 
+                 'EC_1_11_1_7', 'EC_3_2_1_52', 'EC_3_5_1_4', 'EC_3_5_1_5', 
+                'EC_3_4_11_1', 'EC_1_3_3_11', 'EC_3_1_3_1', 'EC_3_1_3_2', 'EC_3_1_3_8', 
+                'EC_3_1_3_26', 'EC_3_1_6_1', 'EC_1_18_6_1', 'EC_1_14_18_3', 'EC_1_14_99_39', 
+                'EC_1_7_2_6', 'EC_1_7_1_15', 'EC_1_7_2_2', 'EC_1_7_7_1', 
+                'EC_1_7_2_1', 'EC_1_7_2_5', 'EC_1_7_2_4', 'ClimateZ', 'clay')
+    myFormula <- as.formula(paste0(myVar, "~ ."))
     
     final <- data %>%
       select(all_of(keep_X), myVar)
     
     if ('ClimateZ' %in% keep_X) {
       final$ClimateZ <- factor(final$ClimateZ)
+    }
+    
+    if ('clay' %in% keep_X) {
+      final$clay <- as.numeric(final$clay)
     }
   
     for (myRun in seq(1,25,1)) {
@@ -835,23 +1043,9 @@ for (myVar in myVars) {
       obs <- data.frame(test[,myVar])
       colnames(obs)[1] <- "obs"
       cf.pvso <- cbind(cf.pred, obs)
-      moreparty::PerfsRegression(cf.pvso$pred, cf.pvso$obs)
   
-      #saveRDS(cf.pvso, paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".RDS", sep = ""))
-      
-      res.lm <- lm(obs ~ pred, data = cf.pvso)
-      #p1 <- ggplot(cf.pvso, aes(x = obs, y = pred)) +
-      #  geom_point() +
-      #  stat_smooth(method = "lm", se = TRUE, level = 0.95) +
-      #  labs(title = paste("Adj R2 =",signif(summary(res.lm)$adj.r.squared, 2),
-      #                     " P =",signif(summary(res.lm)$coef[2,4], 2)),
-      #       x = "Observed", y = "Predicted") +
-      #  theme_bw()
-
-      #ggsave(paste("../../dan_out/ACE_EC_RA_obs_vs_pred", myRun, ".png", sep = ""), 
-      #       unit = "in", width = 6, height = 6, dpi = 300, device = "png")
-      
       # save R^2 and p-values to a file
+      res.lm <- lm(obs ~ pred, data = cf.pvso)
       r2_val <- summary(res.lm)$adj.r.squared
       p_val <- summary(res.lm)$coef[2,4]
       
@@ -861,35 +1055,34 @@ for (myVar in myVars) {
                   append = TRUE, sep = ",", row.names = FALSE)
       
       # # variable importances
-      imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
-                              conditional=FALSE, threshold=0.2, asParty=FALSE,
-                              thresholdDiagnostics = FALSE, progressBar = TRUE)
-       
-      imp <- as.data.frame(imp$values)
-      names(imp) <- 'vimp'
-      imp <- imp %>% arrange(desc(vimp))
-      imp <- tibble::rownames_to_column(imp, "EC")
-      imp$Run <- myRun
-       
-      write.table(imp, 
-                 file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
-                 col.names=FALSE,
-                 append = TRUE, sep = ",", row.names = FALSE)
-       
-      pd <- GetPartialData(cf.train, xnames=imp$EC[1:6], 
-                           quantiles=FALSE, grid.resolution = 21,
-                           parallel=TRUE)
-      pd$run <- myRun
-      write.table(pd, 
-           file = paste0("../../dan_out/", myVar, "_", myData, "_pd.csv"),
-           col.names=FALSE,
-           append = TRUE, sep = ",", row.names = FALSE)
-       
-      #pd <- edarf::partial_dependence(cf.train, imp$EC[2], interaction=FALSE)
-      #p <- edarf::plot_pd(pd)
-      #ggsave(paste("../../dan_out/", myVar, "_", myData, "_pd", myRun, ".png", sep = ""), 
-      #      unit = "in", width = 8, height = 8, dpi = 300, device = "png")
-    
+      # imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
+      #                         conditional=FALSE, threshold=0.2, asParty=FALSE,
+      #                         thresholdDiagnostics = FALSE, progressBar = TRUE)
+      # 
+      # imp <- as.data.frame(imp$values)
+      # names(imp) <- 'vimp'
+      # imp <- imp %>% arrange(desc(vimp))
+      # imp <- tibble::rownames_to_column(imp, "EC")
+      # imp$Run <- myRun
+      # 
+      # write.table(imp,
+      #            file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
+      #            col.names=FALSE,
+      #            append = TRUE, sep = ",", row.names = FALSE)
+      # 
+      # for (EC in seq(1,10,1)) {
+      #   print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
+      # 
+      #   pd <- GetPartialData(cf.train, xnames=imp$EC[EC],
+      #                        quantiles=FALSE, grid.resolution = 51,
+      #                        parallel=TRUE)
+      #   pd$run <- myRun
+      # 
+      #   write.table(pd,
+      #      file = paste0("../../dan_out/pdp/", myVar, "_", myData, "_Predictor.", imp$EC[EC], "_pd.csv"),
+      #      col.names=FALSE,
+      #      append = TRUE, sep = ",", row.names = FALSE)
+      # }
     }
   }
 }

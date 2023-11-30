@@ -14,7 +14,7 @@ library(Boruta)
 library(moreparty)
 library(permimp)
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+myVars <- c('SOM', 'ace', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_RA_corr.RDS")
 
@@ -37,6 +37,9 @@ for (myVar in myVars) {
     
     if ('ClimateZ' %in% keep_X) {
       final$ClimateZ <- factor(final$ClimateZ)
+    }
+    if ('clay' %in% keep_X) {
+      final$clay <- factor(final$clay)
     }
     
       print(paste0("Starting run for indicator ", myVar))
@@ -68,8 +71,8 @@ for (myVar in myVars) {
       obs <- data.frame(test[,myVar])
       colnames(obs)[1] <- "obs"
       cf.pvso <- cbind(cf.pred, obs)
-      moreparty::PerfsRegression(cf.pvso$pred, cf.pvso$obs)
-      saveRDS(cf.pvso, paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_EC_RA_corr_obs_vs_pred", args[1], ".RDS", sep = ""))
+      more_stats <- moreparty::PerfsRegression(cf.pvso$pred, cf.pvso$obs)
+      more_stats <- t(data.frame(more_stats))
       
       # observed vs predicted linear model
       res.lm <- lm(obs ~ pred, data = cf.pvso)
@@ -77,14 +80,13 @@ for (myVar in myVars) {
       # save R^2 and p-values to a file
       r2_val <- summary(res.lm)$adj.r.squared
       p_val <- summary(res.lm)$coef[2,4]
-      write.table(cbind(args[1], r2_val, p_val, myVar), 
-                  file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_EC_RA_corr_stats", args[1], ".csv", sep = ""), 
-                  col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
+      write.table(cbind(args[1], r2_val, p_val, myVar, more_stats),
+                 file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_EC_RA_corr_stats", ".csv", sep = ""),
+                 col.names = TRUE, append = TRUE, sep = ",", row.names = FALSE)
       
       # variable importances
-      # threshold = 1 identifies important features independent of the other predictors
       imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
-                             conditional=FALSE, threshold=1, asParty=FALSE,
+                             conditional=FALSE, asParty=FALSE,
                              thresholdDiagnostics = FALSE, progressBar = TRUE)
 
       imp <- as.data.frame(imp$values)
@@ -93,18 +95,23 @@ for (myVar in myVars) {
       imp <- tibble::rownames_to_column(imp, "EC")
       imp$Run <- args[1]
       
-      # write variable importances to a file
+      #write variable importances to a file
       write.table(imp,
-                  file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_varimp", args[1], ".csv", sep = ""),
-                  col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
+                 file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp", ".csv", sep = ""),
+                 col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
       
-      # partial dependence plots
-      pd <- GetPartialData(cf.train, xnames=imp$EC[2], quantiles=FALSE, grid.resolution = 10)
-      ggForestEffects(pd, vline=0, xlabel="", ylabel="", main="")
-
-      pd <- edarf::partial_dependence(cf.train, imp$EC[2], interaction=FALSE)
-      p <- edarf::plot_pd(pd)
-      ggsave(paste("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_pd", args[1], ".png", sep = ""),
-           unit = "in", width = 8, height = 8, dpi = 300, device = "png")
+      for (EC in seq(1,10,1)) {
+        print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
+        
+        pd <- GetPartialData(cf.train, xnames=imp$EC[EC], 
+                             quantiles=FALSE, grid.resolution = 21,
+                             parallel=TRUE)
+        pd$run <- args[1]
+        
+        write.table(pd, 
+                    file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_pd", "_Predictor_", imp$EC[EC], ".csv", sep = ""),
+                    col.names=FALSE,
+                    append = TRUE, sep = ",", row.names = FALSE)
+      }
       
 }
