@@ -1100,7 +1100,7 @@ gibbs$EC <- gsub("\\.","_", gibbs$EC)
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA_corr', 'EC_Total_corr', 'GIBBs_RA_corr', 'GIBBs_Total_corr')
 
-myVar <- 'ace'
+myVar <- 'mg'
 myData <- 'GIBBs_RA_corr'
 
 df <- read.csv(paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"), header=FALSE)
@@ -1108,11 +1108,11 @@ names(df) <- c('Predictor', 'VIP', 'Run')
 
 gDF <- df %>%
   left_join(gibbs, by=c("Predictor"="EC")) %>% 
-  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE))
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
 
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
-  filter(Var > 0.01) %>% select(-Var)
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 p <- ggplot(gDF, aes(x=Short, y=VIP, fill=Category)) +
@@ -1120,7 +1120,7 @@ p <- ggplot(gDF, aes(x=Short, y=VIP, fill=Category)) +
   geom_boxplot() + 
   theme_bw() +
   theme(axis.text.x=element_text(angle=90)) +
-  labs(x="", y="Variabile Importance")
+  labs(x="", y="Variable Importance")
 p
 
 ```
