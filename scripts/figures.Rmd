@@ -31,6 +31,7 @@ library(ggpubr)
 ### Partial dependence plots
 ```{r}
 # show response of important features to each indicator
+# just do this on a final model
 ```
 
 

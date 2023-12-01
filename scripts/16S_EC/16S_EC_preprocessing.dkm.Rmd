@@ -947,10 +947,9 @@ library(moreparty)
 library(permimp)
 
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn', 'SH_rating', 'Overall')
-
-#myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA', 'EC_RA_corr', 'EC_Total_corr')
-myDatas <- 'EC_RA_corr'
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+#myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA_corr', 'EC_Total_corr', 'GIBBs_RA_corr', 'GIBBs_Total_corr')
+myDatas <- c('GIBBs_RA_corr', 'GIBBs_Total_corr')
 
 for (myVar in myVars) {
   print(paste0("Variable:", myVar))
@@ -983,23 +982,25 @@ for (myVar in myVars) {
     names(data) <- gsub(":","_", names(data))
     names(data) <- gsub("\\.","_", names(data))
   
-    # Select using Boruta
-    #myFormula <- as.formula(paste0(myVar, ' ~ .'))
-    #Boruta.res <- Boruta(myFormula, data=data)
-    #myFormula <- getConfirmedFormula(Boruta.res)
-    #keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision == "Confirmed"])
-    
-    # GIBBs enzymes 
-    # 'EC_1_10_3_2' & 'EC_1_7_1_4' don't exist
-    keep_X <- c('EC_1_4_99_5', 'EC_4_1_1_5', 'EC_1_1_1_76', 'EC_3_2_1_6', 'EC_3_2_1_14', 
-                'EC_2_6_1_86', 'EC_4_1_1_74', 'EC_3_5_99_7', 'EC_5_4_4_2', 'EC_4_2_99_21', 
-                'EC_3_3_2_1', 'EC_1_3_1_28', 'EC_3_2_1_21', 'EC_3_2_1_20', 'EC_3_2_1_91', 
-                 'EC_1_11_1_7', 'EC_3_2_1_52', 'EC_3_5_1_4', 'EC_3_5_1_5', 
-                'EC_3_4_11_1', 'EC_1_3_3_11', 'EC_3_1_3_1', 'EC_3_1_3_2', 'EC_3_1_3_8', 
-                'EC_3_1_3_26', 'EC_3_1_6_1', 'EC_1_18_6_1', 'EC_1_14_18_3', 'EC_1_14_99_39', 
-                'EC_1_7_2_6', 'EC_1_7_1_15', 'EC_1_7_2_2', 'EC_1_7_7_1', 
-                'EC_1_7_2_1', 'EC_1_7_2_5', 'EC_1_7_2_4', 'ClimateZ', 'clay')
-    myFormula <- as.formula(paste0(myVar, "~ ."))
+    if (myData %in% c("TAX_RA", "TAX_Total", 'EC_RA_corr', 'EC_Total_corr')) { 
+      # Select using Boruta
+      myFormula <- as.formula(paste0(myVar, ' ~ .'))
+      Boruta.res <- Boruta(myFormula, data=data)
+      myFormula <- getConfirmedFormula(Boruta.res)
+      keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision != "Rejected"])
+    } else {
+      # GIBBs enzymes 
+      # 'EC_1_10_3_2' & 'EC_1_7_1_4' don't exist
+      keep_X <- c('EC_1_4_99_5', 'EC_4_1_1_5', 'EC_1_1_1_76', 'EC_3_2_1_6', 'EC_3_2_1_14', 
+                  'EC_2_6_1_86', 'EC_4_1_1_74', 'EC_3_5_99_7', 'EC_5_4_4_2', 'EC_4_2_99_21', 
+                  'EC_3_3_2_1', 'EC_1_3_1_28', 'EC_3_2_1_21', 'EC_3_2_1_20', 'EC_3_2_1_91', 
+                  'EC_1_11_1_7', 'EC_3_2_1_52', 'EC_3_5_1_4', 'EC_3_5_1_5', 
+                  'EC_3_4_11_1', 'EC_1_3_3_11', 'EC_3_1_3_1', 'EC_3_1_3_2', 'EC_3_1_3_8', 
+                  'EC_3_1_3_26', 'EC_3_1_6_1', 'EC_1_18_6_1', 'EC_1_14_18_3', 'EC_1_14_99_39', 
+                  'EC_1_7_2_6', 'EC_1_7_1_15', 'EC_1_7_2_2', 'EC_1_7_7_1', 
+                  'EC_1_7_2_1', 'EC_1_7_2_5', 'EC_1_7_2_4', 'ClimateZ', 'clay')
+      myFormula <- as.formula(paste0(myVar, "~ ."))
+    }
     
     final <- data %>%
       select(all_of(keep_X), myVar)
@@ -1054,23 +1055,23 @@ for (myVar in myVars) {
                   col.names = FALSE,
                   append = TRUE, sep = ",", row.names = FALSE)
       
-      # # variable importances
-      # imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
-      #                         conditional=FALSE, threshold=0.2, asParty=FALSE,
-      #                         thresholdDiagnostics = FALSE, progressBar = TRUE)
+      # variable importances
+      imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
+                              conditional=FALSE, threshold=0.2, asParty=FALSE,
+                              thresholdDiagnostics = FALSE, progressBar = TRUE)
+
+      imp <- as.data.frame(imp$values)
+      names(imp) <- 'vimp'
+      imp <- imp %>% arrange(desc(vimp))
+      imp <- tibble::rownames_to_column(imp, "EC")
+      imp$Run <- myRun
+
+      write.table(imp,
+                 file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
+                 col.names=FALSE,
+                 append = TRUE, sep = ",", row.names = FALSE)
       # 
-      # imp <- as.data.frame(imp$values)
-      # names(imp) <- 'vimp'
-      # imp <- imp %>% arrange(desc(vimp))
-      # imp <- tibble::rownames_to_column(imp, "EC")
-      # imp$Run <- myRun
-      # 
-      # write.table(imp,
-      #            file = paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"),
-      #            col.names=FALSE,
-      #            append = TRUE, sep = ",", row.names = FALSE)
-      # 
-      # for (EC in seq(1,10,1)) {
+      # for (EC in seq(1,min(10,length(imp$EC)),1)) {
       #   print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
       # 
       #   pd <- GetPartialData(cf.train, xnames=imp$EC[EC],
@@ -1087,8 +1088,39 @@ for (myVar in myVars) {
   }
 }
 
-
-
-
 ```
 
+
+```{r}
+library(paletteer)
+gibbs <- read.csv('../../picrust2_files/GIBBs.EC.numbers.csv')
+gibbs$EC <- gsub(":","_", gibbs$EC)
+gibbs$EC <- gsub("\\.","_", gibbs$EC)
+
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+myDatas <- c('TAX_RA', 'TAX_Total', 'EC_RA_corr', 'EC_Total_corr', 'GIBBs_RA_corr', 'GIBBs_Total_corr')
+
+myVar <- 'ace'
+myData <- 'GIBBs_RA_corr'
+
+df <- read.csv(paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE))
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var)
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+p <- ggplot(gDF, aes(x=Short, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variabile Importance")
+p
+
+```

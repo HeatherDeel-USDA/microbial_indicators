@@ -19,8 +19,14 @@ myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p',
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_Total_corr.RDS")
 
 for (myVar in myVars) {
-  data <- ml_EC_16S %>%
-    select(grep("EC:", colnames(ml_EC_16S)), ClimateZ, clay, myVar)
+  data <- ml_EC_16S %>% select(grep("EC:", colnames(ml_EC_16S)))
+  df.myVar <- as.vector(ml_EC_16S[,myVar])
+  df.climate <- as.vector(ml_EC_16S[,'ClimateZ'])
+  df.clay <- as.vector(ml_EC_16S[,'clay'])
+  data <- cbind(df.myVar, df.climate, df.clay, data)
+  names(data)[1] <- myVar
+  names(data)[2] <- 'ClimateZ'
+  names(data)[3] <- 'clay'
   
   # format so : and . are replaced by _ (for varimp)
   names(data) <- gsub(":","_", names(data))
@@ -29,7 +35,7 @@ for (myVar in myVars) {
   myFormula <- as.formula(paste0(myVar, ' ~ .'))
   Boruta.res <- Boruta(myFormula, data=data)
   myFormula <- getConfirmedFormula(Boruta.res)
-  keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision == "Confirmed"])
+  keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision != "Rejected"])
   keep_X
   
   final <- data %>%
@@ -39,7 +45,7 @@ for (myVar in myVars) {
     final$ClimateZ <- factor(final$ClimateZ)
   }
   if ('clay' %in% keep_X) {
-    final$clay <- factor(final$clay)
+    final$clay <- as.numeric(final$clay)
   }
   
   print(paste0("Starting run for indicator ", myVar))
@@ -100,7 +106,7 @@ for (myVar in myVars) {
               file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_total_corr/", myVar, "_total_corr_varimp", ".csv", sep = ""),
               col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
   
-  for (EC in seq(1,10,1)) {
+  for (EC in seq(1,min(10,length(imp$EC)),1)) {
     print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
     
     pd <- GetPartialData(cf.train, xnames=imp$EC[EC], 
