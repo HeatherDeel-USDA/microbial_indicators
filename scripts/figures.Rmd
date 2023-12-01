@@ -10,84 +10,443 @@ output: html_document
 library(ggplot2)
 library(readxl)
 library(ggpubr)
+library(paletteer)
+library(tidyverse)
 ```
 
 ### Comparison of taxonomic and EC relative abundance and total data
 ```{r}
 # compare the r^2 distributions of 1-25 models
+# just clean up the same figure Dan made
 
 ```
 
 ### Boxplot of R^2 values for each indicator
 ```{r}
+ml_stats <- read.csv("machine_learning/16S_EC/All_EC_RA_total_corr_stats.csv")
+ml_stats_RA <- ml_stats[ml_stats$RA_total == "RA",]
+ml_stats_total <- ml_stats[ml_stats$RA_total == "total",]
 
+
+stat.test.RA <- compare_means(r2_val ~ myVar,
+                           data = ml_stats_RA,
+                           method = 'wilcox.test',
+                           p.adj = 'fdr')
+stat.test.total <- compare_means(r2_val ~ myVar,
+                           data = ml_stats_total,
+                           method = 'wilcox.test',
+                           p.adj = 'fdr')
+stat.test.RA$Comparison <- paste0(stat.test.RA$group1, " - ", stat.test.RA$group2)
+stat.test.total$Comparison <- paste0(stat.test.total$group1, " - ", stat.test.total$group2)
+groups.RA <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test.RA,
+                              threshold = 0.05)
+groups.total <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test.total,
+                              threshold = 0.05)
+  
+groups.RA$y <- 1.2
+groups.total$y <- 1.2
+
+p1 <- ggplot(ml_stats_RA, aes(x=myVar, y=r2_val)) + 
+  geom_boxplot(fill='grey') + 
+  labs(y='R^2 Values', x='Indicator', title = "EC Model Prediction Accuracy, Relative Abundance") + 
+  theme_bw() + 
+  ylim(0,1.2) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  geom_text(inherit.aes=F, data=groups.RA, aes(x=Group, y=y, label=Letter)) # add significances
+p1
+
+ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+p2 <- ggplot(ml_stats_total, aes(x=myVar, y=r2_val)) + 
+  geom_boxplot(fill='grey') + 
+  labs(y='R^2 Values', x='Indicator', title = "EC Model Prediction Accuracy, Total Abundance") + 
+  theme_bw() + 
+  ylim(0,1.2) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  geom_text(inherit.aes=F, data=groups.total, aes(x=Group, y=y, label=Letter)) # add significances
+p2
+
+ggsave("figures/ml_ec_r2_total.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2_total.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
 ```
 
-### Boxplots of feature importance distributions
+### Feature importance distributions
 ```{r}
-# do this for each indicator
+gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
+gibbs$EC <- gsub(":","_", gibbs$EC)
+gibbs$EC <- gsub("\\.","_", gibbs$EC)
+
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+
+### ace
+myVar <- 'ace'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+ace_varimp_list <- unique(gDF$Predictor)
+ace_varimp <- data.frame(ace_varimp_list)
+ace_varimp$indicator <- "ace"
+colnames(ace_varimp)[1] <- "Predictor"
+
+ace_imps <- data.frame()
+for (predictor in ace_varimp_list) {
+  gDF_ace <- gDF %>% 
+    filter(Predictor == predictor) }
+  if (length(gDF_ace$Predictor == 1)) {
+    gDF_ace$VIP_avg <- gDF_ace$VIP
+    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
+  } else {
+    gDF_ace$VIP_avg <- colMeans(gDF_ace$VIP)
+    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
+  }
+
+# calculate average importance of all shared features
+ace_shared$avg_imp <- rowMeans(ace_shared[,2:26])
+ace_shared <- ace_shared[,c(1,27)]
+ace_shared <- data.frame(ace_shared)
+colnames(ace_shared)[1] <- "feature"
+ace_shared$indicator <- "ACE"
+
+ace_ECs <- list(ace_varimp$Predictor)
+
+
+
+
+
+
+
+
+
+
+
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### SOM
+myVar <- 'SOM'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### activeC
+myVar <- 'activeC'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### resp
+myVar <- 'resp'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### agg_stab
+myVar <- 'agg_stab'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### water_cap
+myVar <- 'water_cap'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### ph
+myVar <- 'ph'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### p
+myVar <- 'p'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### k
+myVar <- 'k'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 10, height = 6, dpi = 300, device = "tiff")
+
+### mg
+myVar <- 'mg'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### fe
+myVar <- 'fe'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### mn
+myVar <- 'mn'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### zn
+myVar <- 'zn'
+
+df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
+names(df) <- c('Predictor', 'VIP', 'Run')
+
+gDF <- df %>%
+  left_join(gibbs, by=c("Predictor"="EC")) %>% 
+  mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+
+gDF <- gDF %>% group_by(Predictor) %>%
+  mutate(Var = mean(VIP)) %>%
+  filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+colors <- paletteer_d(`"ggsci::category20_d3"`)
+
+p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  scale_fill_manual(values=colors, na.value="white") +
+  geom_boxplot() + 
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="", y="Variable Importance", title = myVar)
+p
+ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
 ```
 
 ### Partial dependence plots
 ```{r}
 # show response of important features to each indicator
 # just do this on a final model
-```
-
-
-
-
-
-
-
-
-
-
-
-
-########## Previous code to use for copying, delete later
-### Boxplot of EC R^2 values
-```{r}
-ml_stats <- read_xlsx("machine_learning/16S_EC/ml_EC_stats_all.xlsx")
-
-stat.test <- compare_means(r2_val ~ model_type,
-                           data = ml_stats,
-                           method = 'wilcox.test',
-                           p.adj = 'fdr')
-stat.test$Comparison <- paste0(stat.test$group1, " - ", stat.test$group2)
-groups <- rcompanion::cldList(p.adj ~ Comparison,
-                              data = stat.test,
-                              threshold = 0.05)
-  
-groups$y <- 0.9
-
-# reordering from highest to lowest r^2 values
-ml_stats$model_type <- factor(ml_stats$model_type, levels = c('ACE','SOM','SHMI',
-                                                              'ACTIVEC','RESP','DIST',
-                                                              'WATERCAP','ROOT','AGGSTAB',
-                                                              'CASH','SEMWISE','RICH'))
-
-p1 <- ggplot(ml_stats, aes(x=model_type, y=r2_val)) + 
-  geom_boxplot(fill='grey') + 
-  labs(y='R^2 Values', x='Prediction Type', title = "EC Model Prediction Accuracy") + 
-  theme_bw() + 
-  ylim(0,0.90) +
-  theme(axis.text.x=element_text(angle=45, hjust=1)) +
-  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=Letter)) # add significances
-p1
-
-ggsave("figures/ml_ec_r2.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_r2.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
-```
-
-### Merge EC and tax graphs to compare
-```{r}
-ec_tax_r2 <- ggarrange(p1, p2,
-                    labels = c("A", "B"),
-                    ncol = 2, nrow = 1)
-ec_tax_r2
-
-ggsave("figures/ml_ec_tax_r2.pdf", unit = "in", width = 8, height = 4, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_tax_r2.tiff", unit = "in", width = 8, height = 4, dpi = 300, device = "tiff")
 ```
 
