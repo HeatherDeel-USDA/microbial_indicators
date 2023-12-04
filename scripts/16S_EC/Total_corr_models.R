@@ -14,7 +14,9 @@ library(Boruta)
 library(moreparty)
 library(permimp)
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+# rerunning with rescaled nutrients, so making a new myVars line with just nutrients
+myVars <- c('p', 'k', 'mg', 'fe', 'mn', 'zn')
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_Total_corr.RDS")
 
