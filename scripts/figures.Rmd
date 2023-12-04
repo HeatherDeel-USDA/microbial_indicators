@@ -95,42 +95,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-ace_varimp_list <- unique(gDF$Predictor)
-ace_varimp <- data.frame(ace_varimp_list)
-ace_varimp$indicator <- "ace"
-colnames(ace_varimp)[1] <- "Predictor"
-
-ace_imps <- data.frame()
-for (predictor in ace_varimp_list) {
-  gDF_ace <- gDF %>% 
-    filter(Predictor == predictor) }
-  if (length(gDF_ace$Predictor == 1)) {
-    gDF_ace$VIP_avg <- gDF_ace$VIP
-    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
-  } else {
-    gDF_ace$VIP_avg <- colMeans(gDF_ace$VIP)
-    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
-  }
-
-# calculate average importance of all shared features
-ace_shared$avg_imp <- rowMeans(ace_shared[,2:26])
-ace_shared <- ace_shared[,c(1,27)]
-ace_shared <- data.frame(ace_shared)
-colnames(ace_shared)[1] <- "feature"
-ace_shared$indicator <- "ACE"
-
-ace_ECs <- list(ace_varimp$Predictor)
-
-
-
-
-
-
-
-
-
-
-
+gDF_avg_ace <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_ace$Indicator <- "ACE"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -157,6 +125,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_SOM <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_SOM$Indicator <- "SOM"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -181,6 +154,11 @@ gDF <- df %>%
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+gDF_avg_activeC <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_activeC$Indicator <- "Active C"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -207,6 +185,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_resp <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_resp$Indicator <- "Respiration"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -231,6 +214,11 @@ gDF <- df %>%
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+gDF_avg_aggstab <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_aggstab$Indicator <- "Aggregate Stability"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -257,6 +245,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_watercap <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_watercap$Indicator <- "Water Capacity"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -281,6 +274,11 @@ gDF <- df %>%
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+gDF_avg_ph <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_ph$Indicator <- "pH"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -307,6 +305,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_p <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_p$Indicator <- "P"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -331,6 +334,11 @@ gDF <- df %>%
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+gDF_avg_k <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_k$Indicator <- "K"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -357,6 +365,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_mg <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_mg$Indicator <- "Mg"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -381,6 +394,11 @@ gDF <- df %>%
 gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
+
+gDF_avg_fe <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_fe$Indicator <- "Fe"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -407,6 +425,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_mn <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_mn$Indicator <- "Mn"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -432,6 +455,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
+gDF_avg_zn <- gDF %>% 
+  group_by(Predictor) %>% 
+  summarize(VIP_avg = mean(VIP))
+gDF_avg_zn$Indicator <- "Zn"
+
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
 p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
@@ -442,6 +470,12 @@ p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
   labs(x="", y="Variable Importance", title = myVar)
 p
 ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+
+### make list of varimp averages from all indicators
+varimps_all <- rbind(gDF_avg_ace, gDF_avg_activeC, gDF_avg_aggstab, gDF_avg_fe,
+                     gDF_avg_k, gDF_avg_mg, gDF_avg_mn, gDF_avg_p, gDF_avg_ph,
+                     gDF_avg_resp, gDF_avg_SOM, gDF_avg_watercap, gDF_avg_zn)
+write.csv(varimps_all, file = "machine_learning/16S_EC/all_varimps_list.csv", row.names = FALSE)
 ```
 
 ### Partial dependence plots

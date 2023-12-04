@@ -990,15 +990,11 @@ for (myVar in myVars) {
       keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision != "Rejected"])
     } else {
       # GIBBs enzymes 
-      # 'EC_1_10_3_2' & 'EC_1_7_1_4' don't exist
-      keep_X <- c('EC_1_4_99_5', 'EC_4_1_1_5', 'EC_1_1_1_76', 'EC_3_2_1_6', 'EC_3_2_1_14', 
-                  'EC_2_6_1_86', 'EC_4_1_1_74', 'EC_3_5_99_7', 'EC_5_4_4_2', 'EC_4_2_99_21', 
-                  'EC_3_3_2_1', 'EC_1_3_1_28', 'EC_3_2_1_21', 'EC_3_2_1_20', 'EC_3_2_1_91', 
-                  'EC_1_11_1_7', 'EC_3_2_1_52', 'EC_3_5_1_4', 'EC_3_5_1_5', 
-                  'EC_3_4_11_1', 'EC_1_3_3_11', 'EC_3_1_3_1', 'EC_3_1_3_2', 'EC_3_1_3_8', 
-                  'EC_3_1_3_26', 'EC_3_1_6_1', 'EC_1_18_6_1', 'EC_1_14_18_3', 'EC_1_14_99_39', 
-                  'EC_1_7_2_6', 'EC_1_7_1_15', 'EC_1_7_2_2', 'EC_1_7_7_1', 
-                  'EC_1_7_2_1', 'EC_1_7_2_5', 'EC_1_7_2_4', 'ClimateZ', 'clay')
+      gibbs <- read.csv('../../picrust2_files/GIBBs.EC.numbers.csv')
+      gibbs$EC <- gsub(":","_", gibbs$EC)
+      gibbs$EC <- gsub("\\.","_", gibbs$EC)
+      
+      keep_X <- gibbs$EC
       myFormula <- as.formula(paste0(myVar, "~ ."))
     }
     
