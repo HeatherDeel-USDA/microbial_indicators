@@ -95,10 +95,47 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_ace <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_ace$Indicator <- "ACE"
+ace_varimp_list <- unique(gDF$Predictor)
+ace_varimp <- data.frame(ace_varimp_list)
+ace_varimp$indicator <- "ace"
+colnames(ace_varimp)[1] <- "Predictor"
+
+ace_varimp_list <- "ClimateZ"
+# just testing to see if it even works when indicators are important in more than one model. No it does not.
+
+ace_imps <- data.frame()
+for (predictor in ace_varimp_list) {
+  gDF_ace <- gDF %>% 
+    filter(Predictor == predictor) }
+  if (length(gDF_ace$Predictor == 1)) {
+    gDF_ace$VIP_avg <- gDF_ace$VIP
+    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
+    ace_imps <- data.frame(ace_imps)
+  } else {
+    gDF_ace$VIP_avg <- colMeans(gDF_ace$VIP)
+    ace_imps <- append(ace_imps, list(gDF_ace$Predictor, gDF_ace$VIP_avg))
+    ace_imps <- data.frame(ace_imps)
+  }
+
+# calculate average importance of all shared features
+ace_shared$avg_imp <- rowMeans(ace_shared[,2:26])
+ace_shared <- ace_shared[,c(1,27)]
+ace_shared <- data.frame(ace_shared)
+colnames(ace_shared)[1] <- "feature"
+ace_shared$indicator <- "ACE"
+
+ace_ECs <- list(ace_varimp$Predictor)
+
+
+
+
+
+
+
+
+
+
+
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -125,10 +162,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_SOM <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_SOM$Indicator <- "SOM"
+
+som_varimp_list <- unique(gDF$Predictor)
+som_varimp <- data.frame(som_varimp_list)
+som_varimp$indicator <- "SOM"
+colnames(som_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -155,10 +193,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_activeC <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_activeC$Indicator <- "Active C"
+
+activeC_varimp_list <- unique(gDF$Predictor)
+activeC_varimp <- data.frame(activeC_varimp_list)
+activeC_varimp$indicator <- "activeC"
+colnames(activeC_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -185,10 +224,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_resp <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_resp$Indicator <- "Respiration"
+
+resp_varimp_list <- unique(gDF$Predictor)
+resp_varimp <- data.frame(resp_varimp_list)
+resp_varimp$indicator <- "resp"
+colnames(resp_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -215,10 +255,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_aggstab <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_aggstab$Indicator <- "Aggregate Stability"
+
+agg_stab_varimp_list <- unique(gDF$Predictor)
+agg_stab_varimp <- data.frame(agg_stab_varimp_list)
+agg_stab_varimp$indicator <- "agg_stab"
+colnames(agg_stab_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -245,10 +286,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_watercap <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_watercap$Indicator <- "Water Capacity"
+
+water_cap_varimp_list <- unique(gDF$Predictor)
+water_cap_varimp <- data.frame(water_cap_varimp_list)
+water_cap_varimp$indicator <- "water_cap"
+colnames(water_cap_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -275,10 +317,11 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_ph <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_ph$Indicator <- "pH"
+
+ph_varimp_list <- unique(gDF$Predictor)
+ph_varimp <- data.frame(ph_varimp_list)
+ph_varimp$indicator <- "ph"
+colnames(ph_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -305,10 +348,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_p <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_p$Indicator <- "P"
+p_varimp_list <- unique(gDF$Predictor)
+p_varimp <- data.frame(p_varimp_list)
+p_varimp$indicator <- "p"
+colnames(p_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -335,10 +378,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_k <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_k$Indicator <- "K"
+k_varimp_list <- unique(gDF$Predictor)
+k_varimp <- data.frame(k_varimp_list)
+k_varimp$indicator <- "k"
+colnames(k_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -365,10 +408,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_mg <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_mg$Indicator <- "Mg"
+mg_varimp_list <- unique(gDF$Predictor)
+mg_varimp <- data.frame(mg_varimp_list)
+mg_varimp$indicator <- "mg"
+colnames(mg_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -395,10 +438,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_fe <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_fe$Indicator <- "Fe"
+fe_varimp_list <- unique(gDF$Predictor)
+fe_varimp <- data.frame(fe_varimp_list)
+fe_varimp$indicator <- "fe"
+colnames(fe_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -425,10 +468,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_mn <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_mn$Indicator <- "Mn"
+mn_varimp_list <- unique(gDF$Predictor)
+mn_varimp <- data.frame(mn_varimp_list)
+mn_varimp$indicator <- "mn"
+colnames(mn_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -455,10 +498,10 @@ gDF <- gDF %>% group_by(Predictor) %>%
   mutate(Var = mean(VIP)) %>%
   filter(Var > 0.01) %>% select(-Var) # filter out poor indicators
 
-gDF_avg_zn <- gDF %>% 
-  group_by(Predictor) %>% 
-  summarize(VIP_avg = mean(VIP))
-gDF_avg_zn$Indicator <- "Zn"
+zn_varimp_list <- unique(gDF$Predictor)
+zn_varimp <- data.frame(zn_varimp_list)
+zn_varimp$indicator <- "zn"
+colnames(zn_varimp)[1] <- "Predictor"
 
 colors <- paletteer_d(`"ggsci::category20_d3"`)
 
@@ -470,13 +513,17 @@ p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
   labs(x="", y="Variable Importance", title = myVar)
 p
 ggsave(paste0("figures/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
-
-### make list of varimp averages from all indicators
-varimps_all <- rbind(gDF_avg_ace, gDF_avg_activeC, gDF_avg_aggstab, gDF_avg_fe,
-                     gDF_avg_k, gDF_avg_mg, gDF_avg_mn, gDF_avg_p, gDF_avg_ph,
-                     gDF_avg_resp, gDF_avg_SOM, gDF_avg_watercap, gDF_avg_zn)
-write.csv(varimps_all, file = "machine_learning/16S_EC/all_varimps_list.csv", row.names = FALSE)
 ```
+
+### Make varimp list of all indicators
+```{r}
+# importances not attached yet. need to figure out how to do that. started trying to with ace
+all_varimp <- rbind(ace_varimp, activeC_varimp, agg_stab_varimp, fe_varimp, 
+                    k_varimp, mg_varimp, mn_varimp, p_varimp, ph_varimp, 
+                    resp_varimp, som_varimp, water_cap_varimp, zn_varimp)
+write.csv(all_varimp, file = "machine_learning/16S_EC/all_varimps_list.csv", row.names = FALSE)
+```
+
 
 ### Partial dependence plots
 ```{r}
