@@ -14,66 +14,53 @@ library(paletteer)
 library(tidyverse)
 ```
 
-### Comparison of taxonomic and EC relative abundance and total data
+### Comparison R^2 of different data types
 ```{r}
-# compare the r^2 distributions of 1-25 models
-# just clean up the same figure Dan made
+# tax data was pulled from dan_out/All_stats_randomForest and added to All_stats.csv
+ml_stats <- read.csv("machine_learning/16S_EC/All_stats.csv")
 
+p1 <- ggplot(ml_stats, aes(x=myVar, y=r2_val, fill = RA_total)) + 
+  geom_boxplot() + 
+  xlab("Indicator") +
+  ylab(bquote(R^2~"Values")) +
+  theme_bw() + 
+  ylim(0,1) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  scale_fill_discrete(name = "Data Type", labels = c("EC RA", "EC Total", "GIBBs RA",
+                                                     "GIBBs Total", "Tax RA", "Tax Total")) +
+  scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P",
+                              "pH","Respiration","SOM","Water Capacity","Zn"))
+p1
+
+ggsave("figures/ml_ec_r2_all.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Boxplot of R^2 values for each indicator
+# just relative abundance
 ```{r}
-ml_stats <- read.csv("machine_learning/16S_EC/All_EC_RA_total_corr_stats.csv")
-ml_stats_RA <- ml_stats[ml_stats$RA_total == "RA",]
-ml_stats_total <- ml_stats[ml_stats$RA_total == "total",]
-
-
-stat.test.RA <- compare_means(r2_val ~ myVar,
-                           data = ml_stats_RA,
-                           method = 'wilcox.test',
-                           p.adj = 'fdr')
-stat.test.total <- compare_means(r2_val ~ myVar,
-                           data = ml_stats_total,
-                           method = 'wilcox.test',
-                           p.adj = 'fdr')
-stat.test.RA$Comparison <- paste0(stat.test.RA$group1, " - ", stat.test.RA$group2)
-stat.test.total$Comparison <- paste0(stat.test.total$group1, " - ", stat.test.total$group2)
-groups.RA <- rcompanion::cldList(p.adj ~ Comparison,
-                              data = stat.test.RA,
-                              threshold = 0.05)
-groups.total <- rcompanion::cldList(p.adj ~ Comparison,
-                              data = stat.test.total,
-                              threshold = 0.05)
-  
-groups.RA$y <- 1.2
-groups.total$y <- 1.2
+ml_stats_RA <- filter(ml_stats, RA_total == "EC_RA")
 
 p1 <- ggplot(ml_stats_RA, aes(x=myVar, y=r2_val)) + 
-  geom_boxplot(fill='grey') + 
-  labs(y='R^2 Values', x='Indicator', title = "EC Model Prediction Accuracy, Relative Abundance") + 
+  geom_boxplot(fill = "#F8766D") + 
+  xlab("Indicator") +
+  ylab(bquote(R^2~"Values")) +
   theme_bw() + 
-  ylim(0,1.2) +
+  ylim(0,1) +
   theme(axis.text.x=element_text(angle=45, hjust=1)) +
-  geom_text(inherit.aes=F, data=groups.RA, aes(x=Group, y=y, label=Letter)) # add significances
+  scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P",
+                              "pH","Respiration","SOM","Water Capacity","Zn"))
 p1
 
-ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
-
-p2 <- ggplot(ml_stats_total, aes(x=myVar, y=r2_val)) + 
-  geom_boxplot(fill='grey') + 
-  labs(y='R^2 Values', x='Indicator', title = "EC Model Prediction Accuracy, Total Abundance") + 
-  theme_bw() + 
-  ylim(0,1.2) +
-  theme(axis.text.x=element_text(angle=45, hjust=1)) +
-  geom_text(inherit.aes=F, data=groups.total, aes(x=Group, y=y, label=Letter)) # add significances
-p2
-
-ggsave("figures/ml_ec_r2_total.pdf", unit = "in", width = 8, height = 6, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_r2_total.tiff", unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Feature importance distributions
+# I am here
+# For each indicator, need to:
+# generate a varimp plot
+# create a df with GIBBs + important features for final model
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs$EC <- gsub(":","_", gibbs$EC)

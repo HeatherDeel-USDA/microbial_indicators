@@ -14,7 +14,9 @@ library(Boruta)
 library(moreparty)
 library(permimp)
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+# rerun with just ace
+myVars <- c('ace')
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_RA_corr.RDS")
 
@@ -91,7 +93,7 @@ for (myVar in myVars) {
   p_val <- summary(res.lm)$coef[2,4]
   write.table(cbind(args[1], r2_val, p_val, myVar, more_stats),
               file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr_GIBBs/", myVar, "_EC_RA_corr_GIBBs_stats", ".csv", sep = ""),
-              col.names = TRUE, append = TRUE, sep = ",", row.names = FALSE)
+              col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
   
   # variable importances
   imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
