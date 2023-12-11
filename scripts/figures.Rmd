@@ -12,6 +12,7 @@ library(readxl)
 library(ggpubr)
 library(paletteer)
 library(tidyverse)
+library(gridExtra)
 ```
 
 ### Comparison R^2 of different data types
@@ -149,9 +150,29 @@ for (myVar in myVars) {
 ```
 
 ### Partial dependence plots of final models
+# to do:
+# figure out how to create and merge pdps within the loop
+# decide if we want to include clay and climate in these - climate is weird because it's categorical
 ```{r}
 # show response of important features to each indicator
-# just do this on a final model
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+
+# for testing
+myVar = "ace"
+
+for (myVar in MyVars) {
+  filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = "ace_final_pd_Predictor_EC*", full.names = TRUE)
+  predictors <- lapply(filenames, read.csv, header = FALSE)
+  colnames <- c("predictor","predictor_value","indicator_response")
+  predictors <- lapply(predictors, setNames, colnames)
+  graph <- lapply(predictors, function(x)
+    p <- ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
+    geom_line() +
+    facet_wrap(~predictor)
+    )
+  print(graph)
+}
+
 ```
 
 ### Relative abundance of ECs by subclasses
