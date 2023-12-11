@@ -165,12 +165,16 @@ for (myVar in MyVars) {
   predictors <- lapply(filenames, read.csv, header = FALSE)
   colnames <- c("predictor","predictor_value","indicator_response")
   predictors <- lapply(predictors, setNames, colnames)
-  graph <- lapply(predictors, function(x)
-    p <- ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
+  make_graphs <- function(x) {
+    ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
     geom_line() +
     facet_wrap(~predictor)
-    )
-  print(graph)
+  }
+  p <- lapply(predictors, make_graphs)
+  p2 <- grobs(p, cols = 5)
+
+  lapply(names(graph), function(x)
+    ggsave(filename = paste0("figures/pdp/", x,".pdf",sep=""), plot = plots[[x]]))
 }
 
 ```
