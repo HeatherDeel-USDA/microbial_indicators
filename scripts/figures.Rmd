@@ -12,7 +12,8 @@ library(readxl)
 library(ggpubr)
 library(paletteer)
 library(tidyverse)
-library(gridExtra)
+library(sjPlot)
+library(cowplot)
 ```
 
 ### Comparison R^2 of different data types
@@ -150,31 +151,32 @@ for (myVar in myVars) {
 ```
 
 ### Partial dependence plots of final models
-# to do:
-# figure out how to create and merge pdps within the loop
-# decide if we want to include clay and climate in these - climate is weird because it's categorical
 ```{r}
 # show response of important features to each indicator
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
-# for testing
-myVar = "ace"
-
-for (myVar in MyVars) {
-  filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = "ace_final_pd_Predictor_EC*", full.names = TRUE)
+for (myVar in myVars) {
+  filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = paste0(myVar,"_final_pd_Predictor*"), full.names = TRUE)
   predictors <- lapply(filenames, read.csv, header = FALSE)
   colnames <- c("predictor","predictor_value","indicator_response")
   predictors <- lapply(predictors, setNames, colnames)
   make_graphs <- function(x) {
     ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
     geom_line() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(angle = 90)) +
     facet_wrap(~predictor)
   }
   p <- lapply(predictors, make_graphs)
-  p2 <- grobs(p, cols = 5)
-
-  lapply(names(graph), function(x)
-    ggsave(filename = paste0("figures/pdp/", x,".pdf",sep=""), plot = plots[[x]]))
+  p2 <- ggarrange(p[[1]],p[[2]],p[[3]],p[[4]],p[[5]],
+                  p[[6]],p[[7]],p[[8]],p[[9]],p[[10]],
+                  nrow = 2, ncol = 5)
+  p2
+  annotate_figure(p2, left = text_grob("Indicator", rot = 90),
+                  bottom = text_grob("Feature Value"),
+                  top = text_grob(myVar))
+  ggsave(paste0("figures/pdp/", myVar, "_pdp.pdf"), unit = "in", width = 10, height = 4, dpi = 300, device = "pdf")
 }
 
 ```
