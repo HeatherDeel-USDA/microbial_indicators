@@ -178,11 +178,24 @@ for (myVar in myVars) {
                   top = text_grob(myVar))
   ggsave(paste0("figures/pdp/", myVar, "_pdp.pdf"), unit = "in", width = 10, height = 4, dpi = 300, device = "pdf")
 }
-
 ```
 
 ### Relative abundance of ECs by subclasses
 ```{r}
+# import picrust2 data
+EC_RA <- readRDS("machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS")
+
+# group by subclass
+
+# calculate relative abundances
+
+# relative abundabce graph
+
+# group by sub-subclass
+
+# calculate relative abundances
+
+# relative abundabce graph
 
 ```
 
