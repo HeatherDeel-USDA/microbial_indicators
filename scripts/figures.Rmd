@@ -239,6 +239,80 @@ plot_bar(p_subclass, x = "SH_bin", fill = "Order") + # subclass
 ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 ### subsubclass level data
+ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
+
+EC_subsubclass_list <- c("EC:1.1.1","EC:1.1.2","EC:1.1.3","EC:1.1.5","EC:1.1.9","EC:1.1.98","EC:1.1.99",
+"EC:1.10.2","EC:1.10.3","EC:1.10.9","EC:1.11.1","EC:1.11.2","EC:1.12.1","EC:1.12.2",
+"EC:1.12.5","EC:1.12.7","EC:1.12.98","EC:1.12.99","EC:1.13.11","EC:1.13.12","EC:1.13.99",
+"EC:1.14.11","EC:1.14.12","EC:1.14.13","EC:1.14.14","EC:1.14.15","EC:1.14.16",
+"EC:1.14.17","EC:1.14.18","EC:1.14.19","EC:1.14.21","EC:1.14.99","EC:1.15.1",
+"EC:1.16.1","EC:1.16.3","EC:1.16.8","EC:1.17.1","EC:1.17.2","EC:1.17.3","EC:1.17.4",
+"EC:1.17.5","EC:1.17.7","EC:1.17.99","EC:1.18.1","EC:1.18.6","EC:1.2.1","EC:1.2.3",
+"EC:1.2.4","EC:1.2.5","EC:1.2.7","EC:1.2.98","EC:1.2.99","EC:1.20.1","EC:1.20.4",
+"EC:1.20.9","EC:1.21.4","EC:1.21.98","EC:1.3.1","EC:1.3.3","EC:1.3.4","EC:1.3.5",
+"EC:1.3.7","EC:1.3.8","EC:1.3.98","EC:1.3.99","EC:1.4.1","EC:1.4.3","EC:1.4.4",
+"EC:1.4.7","EC:1.4.9","EC:1.4.99","EC:1.5.1","EC:1.5.3","EC:1.5.5","EC:1.5.8",
+"EC:1.5.98","EC:1.5.99","EC:1.6.1","EC:1.6.2","EC:1.6.3","EC:1.6.5","EC:1.6.99",
+"EC:1.7.1","EC:1.7.2","EC:1.7.3","EC:1.7.7","EC:1.7.99","EC:1.8.1","EC:1.8.2",
+"EC:1.8.3","EC:1.8.4","EC:1.8.5","EC:1.8.7","EC:1.8.98","EC:1.8.99","EC:1.9.3",
+"EC:1.97.1","EC:2.1.1","EC:2.1.2","EC:2.1.3","EC:2.1.4","EC:2.10.1","EC:2.2.1",
+"EC:2.3.1","EC:2.3.2","EC:2.3.3","EC:2.4.1","EC:2.4.2","EC:2.4.99","EC:2.5.1",
+"EC:2.6.1","EC:2.6.99","EC:2.7.1","EC:2.7.10","EC:2.7.11","EC:2.7.14","EC:2.7.2",
+"EC:2.7.3","EC:2.7.4","EC:2.7.6","EC:2.7.7","EC:2.7.8","EC:2.7.9","EC:2.8.1",
+"EC:2.8.2","EC:2.8.3","EC:2.8.4","EC:2.9.1","EC:3.1.1","EC:3.1.11","EC:3.1.12",
+"EC:3.1.13","EC:3.1.2","EC:3.1.21","EC:3.1.22","EC:3.1.25","EC:3.1.26","EC:3.1.27",
+"EC:3.1.3","EC:3.1.30","EC:3.1.31","EC:3.1.4","EC:3.1.5","EC:3.1.6","EC:3.1.7",
+"EC:3.1.8","EC:3.10.1","EC:3.11.1","EC:3.13.1","EC:3.2.1","EC:3.2.2","EC:3.3.1",
+"EC:3.3.2","EC:3.4.11","EC:3.4.13","EC:3.4.14","EC:3.4.15","EC:3.4.16","EC:3.4.17",
+"EC:3.4.19","EC:3.4.21","EC:3.4.22","EC:3.4.23","EC:3.4.24","EC:3.4.25","EC:3.5.1",
+"EC:3.5.2","EC:3.5.3","EC:3.5.4","EC:3.5.5","EC:3.5.99","EC:3.6.1","EC:3.6.3",
+"EC:3.6.4","EC:3.7.1","EC:3.8.1","EC:4.1.1","EC:4.1.2","EC:4.1.3","EC:4.1.99",
+"EC:4.2.1","EC:4.2.2","EC:4.2.3","EC:4.2.99","EC:4.3.1","EC:4.3.2","EC:4.3.3",
+"EC:4.3.99","EC:4.4.1","EC:4.6.1","EC:4.7.1","EC:4.99.1","EC:5.1.1","EC:5.1.2",
+"EC:5.1.3","EC:5.1.99","EC:5.2.1","EC:5.3.1","EC:5.3.2","EC:5.3.3","EC:5.3.4",
+"EC:5.3.99","EC:5.4.1","EC:5.4.2","EC:5.4.3","EC:5.4.4","EC:5.4.99","EC:5.5.1",
+"EC:5.99.1","EC:6.1.1","EC:6.1.2","EC:6.2.1","EC:6.3.1","EC:6.3.2","EC:6.3.3",
+"EC:6.3.4","EC:6.3.5","EC:6.4.1","EC:6.5.1","EC:6.6.1")
+
+EC_subsubclass_list2 <- paste0(EC_subsubclass_list,".")
+
+for (i in EC_subsubclass_list2) {
+  name <- paste0("Sum.", substr(i, 1, nchar(i)-1))
+  temp <- ECs %>%
+    select(starts_with(i)) %>%
+    mutate(!!name := rowSums(., na.rm=T)) %>%
+    select(!starts_with(i))
+  ECs[,name] <- as.vector(temp)
+}
+
+
+
+
+
+sapply(unique(colnames(EC_subsubclass)), function(x) rowSums(EC_subsubclass[,grepl(x, colnames(EC_subsubclass))]))
+
+
+
+
+# summarize subsubclass values - one way to try it that is currently not working because transpose keeping adding suffixes to duplicate column names
+EC_subsubclass_t <- t(EC_subsubclass)
+EC_subsubclass_t <- data.frame(EC_subsubclass_t)
+EC_subsubclass_t <- rownames_to_column(EC_subsubclass_t, var = "data_to_aggregate")
+EC_subsubclass_t_sum <- aggregate()
+
+# another try 
+# take a subset of just the ECs
+EC_subsubclass_ECs <- EC_subsubclass[,64:2160]
+EC_colnames <- colnames()
+colnames(EC_subsubclass_ECs) <- colnames()
+
+
+combine_duplicates <- function(df) {
+   duplicate_columns <- duplicated(colnames(df))
+   return(rbind(df[,duplicate_columns], df[,!duplicate_columns]))
+}
+EC_subsubclass_comb <- combine_duplicates(EC_subsubclass)
+
 
 
 
@@ -253,11 +327,6 @@ plot_bar(p_subclass, x = "SHMI2_bin", fill = "Family") +
   scale_fill_discrete(name = "Sub-subclass")
 ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
-
-```
-
-### PCoA of ECs
-```{r}
 
 ```
 
