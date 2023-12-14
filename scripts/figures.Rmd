@@ -14,6 +14,8 @@ library(paletteer)
 library(tidyverse)
 library(sjPlot)
 library(cowplot)
+library(janitor)
+library(phyloseq)
 ```
 
 ### Comparison R^2 of different data types
@@ -181,21 +183,76 @@ for (myVar in myVars) {
 ```
 
 ### Relative abundance of ECs by subclasses
+##### this needs some work - struggling with doing this with varying EC names, have to figure out how to manually break up
+### might need to try to import as phyloseq object?
 ```{r}
-# import picrust2 data
-EC_RA <- readRDS("machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS")
+### subclass level data
+EC_subclass <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr_subclass.csv")
 
-# group by subclass
+# not sure if I should recalculate relative abundances or not, since the EC data was already in RA (and then corrected by copy number)
+# for now I won't redo RA and will just graph
 
-# calculate relative abundances
+# format "otu" table for importing into phyloseq
+EC_subclass_t <- t(EC_subclass) %>% 
+  row_to_names(row_number = 1)
+EC_subclass_t <- as.matrix(EC_subclass_t)
+EC_subclass_otu <- EC_subclass_t[63:123,]
+EC_subclass_otu <- data.frame(EC_subclass_otu)
 
-# relative abundabce graph
+EC_subclass_otu_num <- lapply(EC_subclass_otu, as.numeric)
+EC_subclass_otu_num <- data.frame(EC_subclass_otu_num)
+rownames(EC_subclass_otu_num) <- rownames(EC_subclass_otu)
 
-# group by sub-subclass
+OTU = otu_table(EC_subclass_otu_num, taxa_are_rows = TRUE)
 
-# calculate relative abundances
+# format sample data for importing into phyloseq
+EC_subclass_sam <- EC_subclass[,c(1:63,125:212)]
+EC_subclass_sam <- column_to_rownames(EC_subclass_sam, var = "SampleID")
+EC_subclass_sam$SHMI2_bin <- factor(EC_subclass_sam$SHMI2_bin, levels = c("very low","low","medium","high","very high"))
+EC_subclass_sam$SH_bin <- factor(EC_subclass_sam$SH_bin, levels = c("very low","low","medium","high","very high"))
 
-# relative abundabce graph
+SAM <- sample_data(EC_subclass_sam)
+
+# use the EC description as "taxa"
+EC_desc <- read_xlsx("ec_files_expasy/enzclass_R.xlsx")
+EC_desc <- column_to_rownames(EC_desc, var = "EC")
+EC_desc <- as.matrix(EC_desc)
+TAX <- tax_table(EC_desc)
+
+# create phyloseq object
+p_subclass <- phyloseq(OTU, TAX, SAM)
+
+# make SHMI bar charts
+plot_bar(p_subclass, x = "SHMI2_bin", fill = "Order") + 
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(x = "SHMI Bin") +
+  scale_fill_discrete(name = "Subclass")
+ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+
+# make SEMWISE bar charts
+plot_bar(p_subclass, x = "SH_bin", fill = "Order") + # subclass
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(x = "SEMWISE Bin") +
+  scale_fill_discrete(name = "Subclass")
+ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+
+### subsubclass level data
+
+
+
+
+
+##### code for subclass level plotting when I need it:
+plot_bar(p_subclass, x = "SHMI2_bin", fill = "Family") +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "SHMI Bin") +
+  scale_fill_discrete(name = "Sub-subclass")
+ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+
 
 ```
 
