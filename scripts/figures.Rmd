@@ -330,3 +330,42 @@ ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height =
 
 ```
 
+### Do the same as above but splitting by .
+```{r}
+ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
+
+ECs2 <- ECs[,4:2439]
+
+# make a vector of names
+EC_names <- names(ECs2)
+
+EC_split <- str_split(EC_names,"\\.")
+
+EC_split2 <- sapply(EC_split, head, 2)
+
+EC_split3 <- sapply(EC_split2, function(name){})
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
