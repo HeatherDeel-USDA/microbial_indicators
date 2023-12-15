@@ -183,8 +183,7 @@ for (myVar in myVars) {
 ```
 
 ### Relative abundance of ECs by subclasses
-##### this needs some work - struggling with doing this with varying EC names, have to figure out how to manually break up
-### might need to try to import as phyloseq object?
+# redo part of this section using the R way to collapse into sublevels and subsublevels - more reproducible
 ```{r}
 ### subclass level data
 EC_subclass <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr_subclass.csv")
@@ -239,6 +238,7 @@ plot_bar(p_subclass, x = "SH_bin", fill = "Order") + # subclass
 ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 ### subsubclass level data
+# start from level 4 EC data and collapse to the subsubclass level in R
 ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
 
 EC_subsubclass_list <- c("EC:1.1.1","EC:1.1.2","EC:1.1.3","EC:1.1.5","EC:1.1.9","EC:1.1.98","EC:1.1.99",
@@ -285,41 +285,48 @@ for (i in EC_subsubclass_list2) {
   ECs[,name] <- as.vector(temp)
 }
 
+# format "otu" table for importing into phyloseq
+EC_subsubclass_t <- t(ECs) %>% 
+  row_to_names(row_number = 1)
+EC_subsubclass_t <- as.matrix(EC_subsubclass_t)
+EC_subsubclass_otu <- EC_subsubclass_t[2588:2807,]
 
+# get EC names to match formatting of "tax" table
+x <- row.names(EC_subsubclass_otu)
+rownames(EC_subsubclass_otu) <- substring(x, 5)
 
+EC_subsubclass_otu <- data.frame(EC_subsubclass_otu)
+EC_subsubclass_otu_num <- lapply(EC_subsubclass_otu, as.numeric)
+EC_subsubclass_otu_num <- data.frame(EC_subsubclass_otu_num)
+rownames(EC_subsubclass_otu_num) <- rownames(EC_subsubclass_otu)
 
+# replace colon with . so it matches taxa names in "tax" table
+row.names(EC_subsubclass_otu_num) <- sub(':', '\\.', row.names(EC_subsubclass_otu_num))
 
-sapply(unique(colnames(EC_subsubclass)), function(x) rowSums(EC_subsubclass[,grepl(x, colnames(EC_subsubclass))]))
+sample_names <- ECs$SampleID
+colnames(EC_subsubclass_otu_num) <- sample_names
 
+OTU = otu_table(EC_subsubclass_otu_num, taxa_are_rows = TRUE)
 
+# format sample data for importing into phyloseq
+EC_sam <- ECs[,c(2:3,2440:2588)]
+EC_sam <- column_to_rownames(EC_sam, var = "SampleID")
+EC_sam$SHMI2_bin <- factor(EC_sam$SHMI2_bin, levels = c("very low","low","medium","high","very high"))
+EC_sam$SH_bin <- factor(EC_sam$SH_bin, levels = c("very low","low","medium","high","very high"))
 
+SAM <- sample_data(EC_sam)
 
-# summarize subsubclass values - one way to try it that is currently not working because transpose keeping adding suffixes to duplicate column names
-EC_subsubclass_t <- t(EC_subsubclass)
-EC_subsubclass_t <- data.frame(EC_subsubclass_t)
-EC_subsubclass_t <- rownames_to_column(EC_subsubclass_t, var = "data_to_aggregate")
-EC_subsubclass_t_sum <- aggregate()
+# use the EC description as "taxa"
+EC_desc <- read_xlsx("ec_files_expasy/enzclass_R.xlsx")
+EC_desc <- column_to_rownames(EC_desc, var = "EC")
+EC_desc <- as.matrix(EC_desc)
+TAX <- tax_table(EC_desc)
 
-# another try 
-# take a subset of just the ECs
-EC_subsubclass_ECs <- EC_subsubclass[,64:2160]
-EC_colnames <- colnames()
-colnames(EC_subsubclass_ECs) <- colnames()
+# create phyloseq object
+p_subsubclass <- phyloseq(OTU, TAX, SAM)
 
-
-combine_duplicates <- function(df) {
-   duplicate_columns <- duplicated(colnames(df))
-   return(rbind(df[,duplicate_columns], df[,!duplicate_columns]))
-}
-EC_subsubclass_comb <- combine_duplicates(EC_subsubclass)
-
-
-
-
-
-
-##### code for subclass level plotting when I need it:
-plot_bar(p_subclass, x = "SHMI2_bin", fill = "Family") +
+# bar chart
+plot_bar(p_subsubclass, x = "SHMI2_bin", fill = "Family") +
   geom_bar(stat = "identity") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -327,6 +334,15 @@ plot_bar(p_subclass, x = "SHMI2_bin", fill = "Family") +
   scale_fill_discrete(name = "Sub-subclass")
 ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
+### looking at this I'm not sure I actually needed to do all this, and I maybe could've just changed the fill in the subclass graph?
+
+plot_bar(p_subsubclass, x = "SH_bin", fill = "Family") +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "SEMWISE Bin") +
+  scale_fill_discrete(name = "Sub-subclass")
+ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 ```
 
@@ -339,14 +355,17 @@ ECs2 <- ECs[,4:2439]
 # make a vector of names
 EC_names <- names(ECs2)
 
-EC_split <- str_split(EC_names,"\\.")
-
-EC_split2 <- sapply(EC_split, head, 2)
-
-EC_split3 <- sapply(EC_split2, function(name){})
+new <- unique(vapply(strsplit(EC_names, '\\.'), function(x) 
+            paste(x[1:2], collapse='.'), character(1L)))
+new <- paste0(new, ".")
 
 ```
 
+### PCOA at subsubclass level just to see what it looks like
+```{r}
+p_ord <- ordinate(p_subsubclass, "CCA", "bray")
+plot_ordination(p_subsubclass, p_ord, "samples", color = "SHMI2_bin")
+```
 
 
 
