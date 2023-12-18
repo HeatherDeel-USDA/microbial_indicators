@@ -364,7 +364,11 @@ new <- paste0(new, ".")
 ### PCOA at subsubclass level just to see what it looks like
 ```{r}
 p_ord <- ordinate(p_subsubclass, "CCA", "bray")
-plot_ordination(p_subsubclass, p_ord, "samples", color = "SHMI2_bin")
+plot_ordination(p_subsubclass, p_ord, "samples", color = "ClimateZ")
+
+p_ord <- ordinate(p_subclass, "CCA", "bray")
+plot_ordination(p_subclass, p_ord, "samples", color = "Current_Land_Use")
+
 ```
 
 
