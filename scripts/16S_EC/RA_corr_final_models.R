@@ -41,48 +41,20 @@ for (myVar in myVars) {
     final$clay <- as.numeric(final$clay)
   }
   
-  # split into train and test (4/5 proportion)
+  # not splitting into train/test so we can get pdps on all data
+  # will report importances of the final model
   final$id <- 1:nrow(final)
-  train <- final %>% dplyr::sample_frac(0.80)
-  test <- dplyr::anti_join(final, train, by = 'id')
-  
-  # get rid of id columns
-  train <- train %>% select(-id)
-  test <- test %>% select(-id)
-  
+
   # cforest on training data
   my_cforest_control <- cforest_control(teststat = "quad",
                                         testtype = "Univ", mincriterion = 0, ntree = 500, 
                                         mtry = floor(length(keep_X)/3),
                                         replace = FALSE)
-  cf.train <- cforest(myFormula, data = train,
+  cf.final <- cforest(myFormula, data = final,
                       controls = my_cforest_control)
   
-  # predict the response
-  cf.pred <- predict(cf.train, newdata = test, OOB = TRUE, type = "response")
-  
-  # observed vs predicted formatting
-  colnames(cf.pred)[1] <- "pred"
-  cf.pred <- data.frame(cf.pred)
-  cf.pred <- rownames_to_column(cf.pred, var = "id")
-  obs <- data.frame(test[,myVar])
-  colnames(obs)[1] <- "obs"
-  cf.pvso <- cbind(cf.pred, obs)
-  more_stats <- moreparty::PerfsRegression(cf.pvso$pred, cf.pvso$obs)
-  more_stats <- t(data.frame(more_stats))
-  
-  # observed vs predicted linear model
-  res.lm <- lm(obs ~ pred, data = cf.pvso)
-  
-  # save R^2 and p-values to a file
-  r2_val <- summary(res.lm)$adj.r.squared
-  p_val <- summary(res.lm)$coef[2,4]
-  write.table(cbind(r2_val, p_val, myVar, more_stats),
-              file = paste0("machine_learning/16S_FINAL/", myVar, "_model_results/", myVar, "_final_stats", ".csv", sep = ""),
-              col.names = TRUE, append = TRUE, sep = ",", row.names = FALSE)
-  
   # variable importances
-  imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
+  imp <- permimp::permimp(cf.final, nperm=1, OOB=TRUE, scaled=FALSE,
                           conditional=FALSE, asParty=FALSE,
                           thresholdDiagnostics = FALSE, progressBar = TRUE)
   
@@ -98,7 +70,7 @@ for (myVar in myVars) {
   for (EC in seq(1,min(10,length(imp$EC)),1)) {
     print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
     
-    pd <- GetPartialData(cf.train, xnames=imp$EC[EC], 
+    pd <- GetPartialData(cf.final, xnames=imp$EC[EC], 
                          quantiles=FALSE, grid.resolution = 21,
                          parallel=TRUE)
     

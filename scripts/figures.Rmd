@@ -70,6 +70,8 @@ gibbs$EC <- gsub("\\.","_", gibbs$EC)
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
+myVar <- 'ace'
+
 # models with all enzymes
 for (myVar in myVars) {
   df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
@@ -178,7 +180,7 @@ for (myVar in myVars) {
   annotate_figure(p2, left = text_grob("Indicator", rot = 90),
                   bottom = text_grob("Feature Value"),
                   top = text_grob(myVar))
-  ggsave(paste0("figures/pdp/", myVar, "_pdp.pdf"), unit = "in", width = 10, height = 4, dpi = 300, device = "pdf")
+  ggsave(paste0("figures/pdp/", myVar, "_pdp.png"), unit = "in", width = 10, height = 4, dpi = 300, device = "png")
 }
 ```
 
