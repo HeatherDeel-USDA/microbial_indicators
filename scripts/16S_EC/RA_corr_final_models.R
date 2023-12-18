@@ -44,6 +44,9 @@ for (myVar in myVars) {
   # not splitting into train/test so we can get pdps on all data
   # will report importances of the final model
   final$id <- 1:nrow(final)
+  
+  # get rid of id column
+  final <- final %>% select(-id)
 
   # cforest on training data
   my_cforest_control <- cforest_control(teststat = "quad",

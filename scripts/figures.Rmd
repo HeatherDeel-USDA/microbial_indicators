@@ -155,6 +155,10 @@ for (myVar in myVars) {
 ```
 
 ### Partial dependence plots of final models
+
+########## things to do here:
+# unscale indicators
+# change Y axes to "myVar Prediction"
 ```{r}
 # show response of important features to each indicator
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
