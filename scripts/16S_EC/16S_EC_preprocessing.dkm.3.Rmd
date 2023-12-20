@@ -947,13 +947,13 @@ library(moreparty)
 library(permimp)
 
 
-#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 
-#            'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap')
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 
+            'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap')
 
 #myDatas <- c('TAX_RA', 'EC_RA_corr', 'GIBBs_RA_corr', 
 #             'TAX_Total', 'EC_Total_corr',  'GIBBs_Total_corr')
-myDatas <- c('EC_RA_corr')
+myDatas <- c('TAX_RA')
 
 for (myData in myDatas) {
     ml_EC_16S <- readRDS(paste0('../../machine_learning/', myData, '/ml_', myData, '.RDS'))
@@ -1107,55 +1107,91 @@ library(paletteer)
 gibbs <- read.csv('../../picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
   filter(Missing != 'x')
-gibbs$EC <- gsub(":","_", gibbs$EC)
-gibbs$EC <- gsub("\\.","_", gibbs$EC)
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 myData <- 'EC_RA_corr'
+
 counter <- 1
 for (myVar in myVars) {
   df <- read.csv(paste0("../../dan_out/", myVar, "_", myData, "_varimp.csv"), header=FALSE)
   names(df) <- c('Predictor', 'VIP', 'Run')
-  
+  df$Predictor <- gsub("EC_","EC:", df$Predictor)
+  df$Predictor <- gsub("_","\\.", df$Predictor)
   gDF <- df %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
-    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE)) # sort levels by median VIP
   
-  gDF <- gDF %>% group_by(Predictor) %>%
-    mutate(Var = mean(VIP)) %>%
-    filter(Var > -1) %>% select(-Var) # filter out poor indicators
+  # filter out poor indicators
+  temp <- gDF %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    #filter(Var > 0.01)
+    top_n(20, Var) 
+  gDF <- gDF %>%
+    filter(Predictor %in% temp$Predictor)
   
   colors <- paletteer_d(`"ggsci::category20_d3"`)
+  colors <- c("Biocontrol" = "#1F77B4FF", 
+              "C cycling" = "#FF7F0EFF",
+              "C/N cycling" = "#2CA02CFF",
+              "N cycling" = "#D62728FF", 
+              "P cycling" = "#9467BDFF", 
+              "S cycling" = "#8C564BFF",
+              "Stess" = "#E377C2FF",
+              "Siderophore" = "#7F7F7FFF",
+              "Other" = "white")
+  means <- aggregate(VIP ~ Predictor, gDF, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
   p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
+    geom_point(aes(fill=Category), shape=21) + 
+    #stat_summary(fun=mean, colour="black", geom="point", 
+    #            shape=18, size=3, show.legend=FALSE) + 
+    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
-    theme(axis.text.x=element_text(angle=90)) +
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
-  p
+  ggsave(paste0("../../dan_out/", myVar, "_", myData, "_varimp.png"), device='png', dpi=600, height=6, width=8)
   
-  means <- gDF %>%
+  means <- df %>%
     group_by(Predictor) %>%
-    summarize(VIP_avg = mean(VIP))
-  means$myVar <- myVar
-  
+    summarize(!!myVar := median(VIP))
+
   if (counter == 1) {
-    allDF <- means
+    meansDF.wide <- means
+    means$myVar <- myVar
+    names(means) <- c('Predictor', 'VIP', 'myVar')
+    meansDF.long <- means
   } else {
-    allDF <- rbind(allDF, means)
+    meansDF.wide <- meansDF.wide %>%
+      full_join(means, by='Predictor')
+    means$myVar <- myVar
+    names(means) <- c('Predictor', 'VIP', 'myVar')
+    meansDF.long <- rbind(meansDF.long, means)
   }
   counter <- counter + 1
 }
 
-allDF
+meansDF.wide
+write.csv(meansDF.wide, paste0("../../dan_out/", "meansDF.wide.", myData, ".csv"))
+meansDF.long
 
+library(ggdendro)
+names(meansDF.wide) <- c('Predictor', 'ACE Protein', 'Soil Organic Matter', 'Active C', 'Respiration', 
+                        'Aggregate Stability', 'Water Capacity', 'pH', 'P', 'K', 'Mg', 'Fe', 'Mn', 'Zn')
+data <- t(meansDF.wide[,-1])
+data[is.na(data)] <- 0
+data[data < 0] <- 0
+dist <- vegan::vegdist(data, method='bray', binary=FALSE)
+dhc <- as.dendrogram(hclust(dist))
 
-#df <- allDF %>% 
-#  mutate(flag = TRUE) %>% 
-#  complete(myVar, Predictor, fill = list(flag = FALSE))
+p <- ggdendrogram(dhc, rotate = TRUE) + 
+  ylab('Bray-Curtis Dissimilarity') + 
+  xlab('') 
+p
+ggsave(paste0("../../dan_out/", "All_", myData, "_dendro.png"), device='png', dpi=600, height=4, width=6)
 
-#ggplot(df, aes(myVar, Predictor, fill = VIP_avg)) + 
-#  geom_tile()
 ```
 
 
