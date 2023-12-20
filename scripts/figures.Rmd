@@ -158,16 +158,26 @@ for (myVar in myVars) {
 
 ########## things to do here:
 # unscale indicators
-# change Y axes to "myVar Prediction"
+# graph the climate z plots as a bar chart (but still need to unscale those) - try to add a for loop within the graphing section for this
 ```{r}
 # show response of important features to each indicator
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
-for (myVar in myVars) {
+myVar <- 'ace'
+# for now I just have to change myVar for each indicator and change the attributes colnames in 181-182 - can't figure out how to access the scaled:scaled and scaled:center in the loop
+
+# read in data.pred so I can use the attributes to unscale the indicators
+data.pred <- readRDS("metadata/data.pred.SHMI.RDS")
+
+#for (myVar in myVars) {
   filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = paste0(myVar,"_final_pd_Predictor*"), full.names = TRUE)
   predictors <- lapply(filenames, read.csv, header = FALSE)
   colnames <- c("predictor","predictor_value","indicator_response")
   predictors <- lapply(predictors, setNames, colnames)
+  
+  for (i in seq_along(predictors)) {
+    predictors[[i]]$unscaled <- predictors[[i]]$indicator_response * attributes(data.pred$ace)['scaled:scale'][[1]] + attributes(data.pred$ace)['scaled:center'][[1]]
+  }
   make_graphs <- function(x) {
     ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
     geom_line() +
@@ -176,16 +186,30 @@ for (myVar in myVars) {
           axis.text.x = element_text(angle = 90)) +
     facet_wrap(~predictor)
   }
-  p <- lapply(predictors, make_graphs)
-  p2 <- ggarrange(p[[1]],p[[2]],p[[3]],p[[4]],p[[5]],
-                  p[[6]],p[[7]],p[[8]],p[[9]],p[[10]],
+  make_bargraphs <- function(x) {
+    ggplot(x, aes(x = predictor_value, y = indicator_response, group = factor(predictor))) +
+    geom_bar() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(angle = 90)) +
+    facet_wrap(~predictor)
+  }
+  for (i in seq_along(predictors)) {
+    if (predictors[[i]]$predictor[1] == "ClimateZ") {
+      p1 = lapply(predictors, make_bargraphs)
+    }
+    if (predictors[[i]]$predictor[1] != "ClimateZ") {
+      p2 = lapply(predictors, make_graphs)
+    }
+  }
+  p3 <- ggarrange(p1[[1]],p2[[1]],p2[[2]],p2[[3]],p2[[4]],
+                  p2[[5]],p2[[6]],p2[[7]],p2[[8]],p2[[9]],
                   nrow = 2, ncol = 5)
-  p2
-  annotate_figure(p2, left = text_grob("Indicator", rot = 90),
-                  bottom = text_grob("Feature Value"),
-                  top = text_grob(myVar))
+  p3
+  annotate_figure(p3, left = text_grob(myVar, rot = 90),
+                  bottom = text_grob("Feature Value"))
   ggsave(paste0("figures/pdp/", myVar, "_pdp.png"), unit = "in", width = 10, height = 4, dpi = 300, device = "png")
-}
+#}
 ```
 
 ### Relative abundance of ECs by subclasses
