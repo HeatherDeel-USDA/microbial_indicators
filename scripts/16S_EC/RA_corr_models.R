@@ -109,7 +109,7 @@ for (myVar in myVars) {
           print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
         
           pd <- GetPartialData(cf.train, xnames=imp$EC[EC], 
-                              quantiles=FALSE, grid.resolution = 21,
+                              quantiles=FALSE, grid.resolution = NULL,
                               parallel=TRUE)
           pd$run <- args[1]
         
