@@ -64,6 +64,7 @@ ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 30
 
 ### Feature importance distributions
 # don't need to filter or scale, can just select the top 20 important features
+# will need to change how I import the varimps since they are now in their own file for each of the 1-25 runs
 
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
@@ -139,6 +140,7 @@ for (myVar in myVars) {
 ```
 
 ### Make varimp list of GIBBs + important features for each indicator
+####### can probably erase this after I run the final models - should be there and not here
 ```{r}
 varimp_df <- read.csv("machine_learning/16S_EC/final_varimps.csv", header = FALSE)
 

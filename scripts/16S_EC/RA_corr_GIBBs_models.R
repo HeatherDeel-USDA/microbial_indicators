@@ -40,7 +40,7 @@ for (myVar in myVars) {
     filter(Missing != 'x')
   gibbs$EC <- gsub(":","_", gibbs$EC)
   gibbs$EC <- gsub("\\.","_", gibbs$EC)
-  keep_X <- gibbs$EC
+  keep_X <- c(gibbs$EC, 'ClimateZ', 'clay', 'DNA')
   myFormula <- as.formula(paste0(myVar, "~ ."))
   
   final <- data %>%
@@ -53,7 +53,7 @@ for (myVar in myVars) {
     final$clay <- as.numeric(final$clay)
   }
   if ('DNA' %in% keep_X) {
-    final$clay <- as.numeric(final$DNA)
+    final$DNA <- as.numeric(final$DNA)
   }
   
   print(paste0("Starting run for indicator ", myVar))
@@ -109,9 +109,10 @@ for (myVar in myVars) {
   imp <- tibble::rownames_to_column(imp, "EC")
   imp$Run <- args[1]
   
-  #write variable importances to a file
+  # write variable importances to a file
+  # writing each to their own file because scinet was messing up 
   write.table(imp,
-              file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr_GIBBs/", myVar, "_RA_corr_GIBBs_varimp", ".csv", sep = ""),
+              file = paste0("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/", myVar, "_model_results_RA_corr_GIBBs/", myVar, "_RA_corr_GIBBs_varimp", args[1], ".csv", sep = ""),
               col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
   for (EC in seq(1,min(10,length(imp$EC)),1)) {
     print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))

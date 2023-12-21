@@ -28,6 +28,27 @@ for (myVar in myVars) {
   names(data) <- gsub(":","_", names(data))
   names(data) <- gsub("\\.","_", names(data))
   
+  ########### before rerunning final models, take code from figures script for compiling the final enzymes and write description of making the final_varimps file
+  #######
+  # final_varimps.csv was made by manually compiling X (write better description after redone)
+  varimp_df <- read.csv("machine_learning/16S_EC/final_varimps.csv", header = FALSE)
+  
+  colnames(varimp_df) <- c("Predictor","VIP","Run","Category","Class","Sub_class",
+                           "Name","Short","Book","Missing","VIP_scaled","all_gibbs",
+                           "indicator")
+  
+  myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+  
+  for (myVar in myVars) {
+    varimp_df_filt <- filter(varimp_df, indicator == myVar)
+    varimp_df_list <- varimp_df_filt %>% 
+      group_by(Predictor) %>% 
+      summarize(VIP_scaled_avg = mean(VIP_scaled))
+    write.csv(varimp_df_list, file = paste0("machine_learning/16S_FINAL/", myVar,"_EC_GIBBs_final.csv"),
+              row.names = FALSE)
+  }
+  ########
+  
   # final enzymes
   final_list <- read.csv(paste0("machine_learning/16S_FINAL/",myVar,"_EC_GIBBs_final.csv"))
   keep_X <- final_list$Predictor
@@ -43,7 +64,7 @@ for (myVar in myVars) {
     final$clay <- as.numeric(final$clay)
   }
   if ('DNA' %in% keep_X) {
-    final$clay <- as.numeric(final$DNA)
+    final$DNA <- as.numeric(final$DNA)
   }
   
   # not splitting into train/test so we can get pdps on all data
@@ -71,7 +92,8 @@ for (myVar in myVars) {
   imp <- imp %>% arrange(desc(vimp))
   imp <- tibble::rownames_to_column(imp, "EC")
   
-  #write variable importances to a file
+  # write variable importances to a file
+  # when running these, check imp and make sure they're writing correctly
   write.table(imp,
               file = paste0("machine_learning/16S_FINAL/", myVar, "_model_results/", myVar, "_final_varimp", ".csv", sep = ""),
               col.names = FALSE, append = TRUE, sep = ",", row.names = FALSE)
