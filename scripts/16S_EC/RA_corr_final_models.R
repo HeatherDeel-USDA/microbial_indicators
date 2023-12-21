@@ -17,10 +17,12 @@ for (myVar in myVars) {
   df.myVar <- as.vector(ml_EC_16S[,myVar])
   df.climate <- as.vector(ml_EC_16S[,'ClimateZ'])
   df.clay <- as.vector(ml_EC_16S[,'clay'])
-  data <- cbind(df.myVar, df.climate, df.clay, data)
+  df.dna <- as.vector(ml_EC_16S[,'DNA'])
+  data <- cbind(df.myVar, df.climate, df.clay, df.dna, data)
   names(data)[1] <- myVar
   names(data)[2] <- 'ClimateZ'
   names(data)[3] <- 'clay'
+  names(data)[4] <- 'DNA'
   
   # format so : and . are replaced by _ (for varimp)
   names(data) <- gsub(":","_", names(data))
@@ -39,6 +41,9 @@ for (myVar in myVars) {
   }
   if ('clay' %in% keep_X) {
     final$clay <- as.numeric(final$clay)
+  }
+  if ('DNA' %in% keep_X) {
+    final$clay <- as.numeric(final$DNA)
   }
   
   # not splitting into train/test so we can get pdps on all data
@@ -74,7 +79,7 @@ for (myVar in myVars) {
     print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
     
     pd <- GetPartialData(cf.final, xnames=imp$EC[EC], 
-                         quantiles=FALSE, grid.resolution = 21,
+                         quantiles=FALSE, grid.resolution = NULL,
                          parallel=TRUE)
     
     write.table(pd, 

@@ -14,9 +14,7 @@ library(Boruta)
 library(moreparty)
 library(permimp)
 
-#myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-# rerunning with rescaled nutrients, so making a new myVars line with just nutrients
-myVars <- c('p', 'k', 'mg', 'fe', 'mn', 'zn')
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
 ml_EC_16S <- readRDS("/project/soil_micro_lab/micro_indicators/machine_learning/16S_EC/ml_EC_Total_corr.RDS")
 
@@ -25,10 +23,12 @@ for (myVar in myVars) {
   df.myVar <- as.vector(ml_EC_16S[,myVar])
   df.climate <- as.vector(ml_EC_16S[,'ClimateZ'])
   df.clay <- as.vector(ml_EC_16S[,'clay'])
-  data <- cbind(df.myVar, df.climate, df.clay, data)
+  df.dna <- as.vector(ml_EC_16S[,'DNA'])
+  data <- cbind(df.myVar, df.climate, df.clay, df.dna, data)
   names(data)[1] <- myVar
   names(data)[2] <- 'ClimateZ'
   names(data)[3] <- 'clay'
+  names(data)[4] <- 'DNA'
   
   # format so : and . are replaced by _ (for varimp)
   names(data) <- gsub(":","_", names(data))
@@ -36,7 +36,7 @@ for (myVar in myVars) {
   
   myFormula <- as.formula(paste0(myVar, ' ~ .'))
   Boruta.res <- Boruta(myFormula, data=data)
-  myFormula <- getConfirmedFormula(Boruta.res)
+  myFormula <- getNonRejectedFormula(Boruta.res)
   keep_X <- names(Boruta.res$finalDecision[Boruta.res$finalDecision != "Rejected"])
   keep_X
   
@@ -48,6 +48,9 @@ for (myVar in myVars) {
   }
   if ('clay' %in% keep_X) {
     final$clay <- as.numeric(final$clay)
+  }
+  if ('DNA' %in% keep_X) {
+    final$clay <- as.numeric(final$DNA)
   }
   
   print(paste0("Starting run for indicator ", myVar))
@@ -112,7 +115,7 @@ for (myVar in myVars) {
     print(paste0("Partial dependence for predictor ", EC, ": ", imp$EC[EC]))
     
     pd <- GetPartialData(cf.train, xnames=imp$EC[EC], 
-                         quantiles=FALSE, grid.resolution = 21,
+                         quantiles=FALSE, grid.resolution = NULL,
                          parallel=TRUE)
     pd$run <- args[1]
     
