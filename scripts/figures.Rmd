@@ -25,7 +25,7 @@ library(phyloseq)
 # tax data was pulled from dan_out/All_stats_randomForest and added to All_stats.csv
 ml_stats <- read.csv("machine_learning/16S_EC/All_stats.csv")
 
-p1 <- ggplot(ml_stats, aes(x=myVar, y=r2_val, fill = RA_total)) + 
+p1 <- ggplot(ml_stats, aes(x=myVar, y=r2_val, fill = RA_total_GIBBs)) + 
   geom_boxplot() + 
   xlab("Indicator") +
   ylab(bquote(R^2~"Values")) +
@@ -45,7 +45,7 @@ ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 3
 ### Boxplot of R^2 values for each indicator
 # just relative abundance
 ```{r}
-ml_stats_RA <- filter(ml_stats, RA_total == "EC_RA")
+ml_stats_RA <- filter(ml_stats, RA_total_GIBBs == "RA")
 
 p1 <- ggplot(ml_stats_RA, aes(x=myVar, y=r2_val)) + 
   geom_boxplot(fill = "#F8766D") + 
@@ -163,6 +163,7 @@ for (myVar in myVars) {
 ### Partial dependence plots of final models
 ### To do:
 # rerun these with new model results
+# haven't yet rerun final models because we may be reducing colinear features
 # I also need to unscale clay when it is included
 ```{r}
 # show response of important features to each indicator
