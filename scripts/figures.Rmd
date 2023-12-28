@@ -357,13 +357,16 @@ new <- unique(vapply(strsplit(EC_names, '\\.'), function(x)
 new <- paste0(new, ".") # adds a period at the end - needed for filtering the original df
 
 # collapse EC list to subclasses
+
+# one try here - not quite working
 for (i in new){
   if (i %in% ECs2_t$ECs) {
-    ECs2_sc <- ECs2_t %>% 
-      mutate(ECs_sc = i)
+    ECs2_sc <- replace(ECs2_t$ECs)
   }
 }
 
+# another try using gsub
+ECs2_sc <- gsub(new, ECs2_t$ECs, ECs2_t)
 
 
 
