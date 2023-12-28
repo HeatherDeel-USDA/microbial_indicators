@@ -1394,7 +1394,7 @@ library(ggplot2)
 library(file2meco)
 library(phyloseq)
 
-myData <- "EC_RA"
+myData <- "EC_RA_corr"
 ml_EC_16S <- readRDS(paste0('../../machine_learning/', myData, '/ml_', myData, '.RDS'))
 
 data <- ml_EC_16S %>% select(grep("EC:", colnames(ml_EC_16S)))
@@ -1406,6 +1406,7 @@ sample_names(OTU) <- ml_EC_16S$SampleID
 taxa <- read.csv('../../picrust2_files/All_EC_classes.csv', row.names='Name')
 TAX <- tax_table(taxa)
 taxa_names(TAX) <- row.names(taxa)
+colnames(TAX) <- c('kingdom', 'phylum', 'class', 'order')
 
 SAMP <- sample_data(ml_EC_16S[,c('SampleID', 'State', 'Site')])
 sample_names(SAMP) <- ml_EC_16S$SampleID
@@ -1416,8 +1417,8 @@ EC.meco <- phyloseq2meco(P)
 
 t1 <- clone(EC.meco)
 
-t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", filter_thres = 0)
-t1$cal_network(COR_p_thres = 0.01, COR_cut=0.7, add_taxa_name=row.names(EC.meco$tax_table)) # 0.69
+t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", filter_thres = 0.001)
+t1$cal_network(COR_p_thres = 0.01, COR_cut=0.7, add_taxa_name='order') # 0.69
 t1$cal_module(method ='cluster_fast_greedy')
 t1$cal_eigen()
 t1$get_node_table(node_roles=TRUE) 
@@ -1439,7 +1440,10 @@ g <- ggraph(use_network_layout) +
   theme(legend.position='none')
 g
 ggsave('network.pdf')
+ggsave(paste0("../../dan_out_2/", "All_", myData, "_network.png"), device='png', dpi=600, height=8, width=11)
 
+
+t1$plot_taxa_roles(use_type = 1)
 
 
 ```

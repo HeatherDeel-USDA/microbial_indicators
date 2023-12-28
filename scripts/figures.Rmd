@@ -75,67 +75,114 @@ gibbs$EC <- gsub("\\.","_", gibbs$EC)
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
-myVar <- 'ace'
-
 # models with all enzymes
 for (myVar in myVars) {
-  df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr/", myVar, "_RA_corr_varimp.csv"), header=FALSE)
-  names(df) <- c('Predictor', 'VIP', 'Run')
+    filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr/"), pattern = paste0(myVar,"_RA_corr_varimp*"), full.names = TRUE)
+  varimps <- lapply(filenames, read.csv, header = FALSE)
+  varimps_full <- varimps %>% 
+    reduce(full_join)
 
-  gDF <- df %>%
+  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
+  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
+
+  gDF <- varimps_full %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
-    mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
 
-  # look at dkm.3 lines 1126 for this
-  gDF <- gDF %>% group_by(Predictor) %>% 
-    mutate(Var = median(VIP)) %>%
-    top_n(20, Var) %>% select(-Var) %>%   # select the top 20 indicators
-    mutate(all_gibbs = "all")
+  # filter out poor indicators
+  temp <- gDF %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(20, Var) 
   
-  write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps.csv", 
-              col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
-
-  colors <- paletteer_d(`"ggsci::category20_d3"`)
-
+  gDF <- gDF %>%
+    filter(Predictor %in% temp$Predictor)
+  
+  #colors <- paletteer_d(`"ggsci::category20_d3"`)
+  colors <- c("Biocontrol" = "#1F77B4FF", 
+              "C cycling" = "#FF7F0EFF",
+              "C/N cycling" = "#2CA02CFF",
+              "N cycling" = "#D62728FF", 
+              "P cycling" = "#9467BDFF", 
+              "S cycling" = "#8C564BFF",
+              "Stess" = "#E377C2FF",
+              "Siderophore" = "#7F7F7FFF",
+              "Other" = "white")
+  
+  means <- aggregate(VIP ~ Predictor, gDF, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
   p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
+    geom_point(aes(fill=Category), shape=21) + 
+    #stat_summary(fun=mean, colour="black", geom="point", 
+    #            shape=18, size=3, show.legend=FALSE) + 
+    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
-    theme(axis.text.x=element_text(angle=90)) +
-    labs(x="", y="Variable Importance", title = myVar)
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
+    labs(x="", y="Variable Importance")
   p
-  ggsave(paste0("figures/varimps/", myVar, "_varimp.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+    ggsave(paste0("figures/", myVar, "_RA_corr_varimp.png"), device='png', dpi=600, height=6, width=8)
+  
+  # before was writing to this file to use in the final models, but not sure this is what we want to do now - how do we select what features should go in the final model?
+  #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps.csv", 
+  #            col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
 }
 
 # models with GIBBs enzymes
 for (myVar in myVars) {
-  df <- read.csv(paste0("machine_learning/16S_EC/", myVar, "_model_results_RA_corr_GIBBs/", myVar, "_RA_corr_GIBBs_varimp.csv"), header=FALSE)
-  names(df) <- c('Predictor', 'VIP', 'Run')
+     filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr_GIBBs/"), pattern = paste0(myVar,"_RA_corr_GIBBs_varimp*"), full.names = TRUE)
+  varimps <- lapply(filenames, read.csv, header = FALSE)
+  varimps_full <- varimps %>% 
+    reduce(full_join)
 
-  gDF <- df %>%
+  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
+  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
+
+  gDF <- varimps_full %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
-    mutate(Short=fct_reorder(Short, VIP, .fun=mean, .desc=TRUE)) # sort levels by mean VIP
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
 
-  gDF <- gDF %>% group_by(Predictor) %>% 
-    mutate(Var = mean(VIP)) %>%
-    filter(Var > 0.01) %>% select(-Var) %>% # filter out poor indicators
-    mutate(VIP_scaled = scale(VIP)) %>%  # scale VIP
-    mutate(all_gibbs = "GIBBs")
+  # filter out poor indicators
+  temp <- gDF %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(20, Var) 
   
-  # write important features + myVar name to a file
-  write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps.csv", 
-              col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
-
-  colors <- paletteer_d(`"ggsci::category20_d3"`)
-
+  gDF <- gDF %>%
+    filter(Predictor %in% temp$Predictor)
+  
+  #colors <- paletteer_d(`"ggsci::category20_d3"`)
+  colors <- c("Biocontrol" = "#1F77B4FF", 
+              "C cycling" = "#FF7F0EFF",
+              "C/N cycling" = "#2CA02CFF",
+              "N cycling" = "#D62728FF", 
+              "P cycling" = "#9467BDFF", 
+              "S cycling" = "#8C564BFF",
+              "Stess" = "#E377C2FF",
+              "Siderophore" = "#7F7F7FFF",
+              "Other" = "white")
+  
+  means <- aggregate(VIP ~ Predictor, gDF, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
   p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
+    geom_point(aes(fill=Category), shape=21) + 
+    #stat_summary(fun=mean, colour="black", geom="point", 
+    #            shape=18, size=3, show.legend=FALSE) + 
+    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
-    theme(axis.text.x=element_text(angle=90)) +
-    labs(x="", y="GIBBs Variable Importance", title = myVar)
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
+    labs(x="", y="Variable Importance")
   p
-  ggsave(paste0("figures/varimps/", myVar, "_varimp_GIBBs.tiff"), unit = "in", width = 8, height = 6, dpi = 300, device = "tiff")
+    ggsave(paste0("figures/", myVar, "_RA_corr_GIBBs_varimp.png"), device='png', dpi=600, height=6, width=8)
+  
+  # before was writing to this file to use in the final models, but not sure this is what we want to do now - how do we select what features should go in the final model?
+  #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps_GIBBs.csv", 
+  #            col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
 }
 ```
 
@@ -294,11 +341,32 @@ for (myVar in myVars1) {
 ### Relative abundance of ECs by subclasses
 # redo part of this section using the R way to collapse into sublevels and subsublevels - more reproducible
 ```{r}
-### subclass level data
-EC_subclass <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr_subclass.csv")
+ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
 
-# not sure if I should recalculate relative abundances or not, since the EC data was already in RA (and then corrected by copy number)
-# for now I won't redo RA and will just graph
+ECs2 <- ECs[,4:2439]
+ECs2_t <- t(ECs2)
+ECs2_t <- data.frame(ECs2_t)
+ECs2_t <- rownames_to_column(ECs2_t, var = "ECs")
+
+# make a vector of names
+EC_names <- names(ECs2)
+
+# create list of subclasses
+new <- unique(vapply(strsplit(EC_names, '\\.'), function(x) 
+            paste(x[1:2], collapse='.'), character(1L)))
+new <- paste0(new, ".") # adds a period at the end - needed for filtering the original df
+
+# collapse EC list to subclasses
+for (i in new){
+  if (i %in% ECs2_t$ECs) {
+    ECs2_sc <- ECs2_t %>% 
+      mutate(ECs_sc = i)
+  }
+}
+
+
+
+
 
 # format "otu" table for importing into phyloseq
 EC_subclass_t <- t(EC_subclass) %>% 
@@ -457,22 +525,8 @@ ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, heigh
 
 ```
 
-### Do the same as above but splitting by .
-```{r}
-ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
-
-ECs2 <- ECs[,4:2439]
-
-# make a vector of names
-EC_names <- names(ECs2)
-
-new <- unique(vapply(strsplit(EC_names, '\\.'), function(x) 
-            paste(x[1:2], collapse='.'), character(1L)))
-new <- paste0(new, ".")
-
-```
-
 ### PCOA at subsubclass level just to see what it looks like
+# redo these using tsne
 ```{r}
 p_ord <- ordinate(p_subsubclass, "CCA", "morisita")
 plot_ordination(p_subsubclass, p_ord, "samples", color = "Previous_Crop")
