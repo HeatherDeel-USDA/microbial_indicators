@@ -1102,9 +1102,8 @@ library(permimp)
 
 
 #myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 
-#            'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-myVars <- c('clay', 'DNA')
-myDatas <- c('TAX_RA', 'EC_RA_corr', 'GIBBs_RA_corr')
+#            'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn', 'clay', 'DNA')
+myDatas <- c('EC_RA_corr', 'GIBBs_RA_corr')
 
 for (myData in myDatas) {
     ml_EC_16S <- readRDS(paste0('../../machine_learning/', myData, '/ml_', myData, '.RDS'))
@@ -1244,8 +1243,11 @@ gibbs <- read.csv('../../picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
   filter(Missing != 'x')
 
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-myData <- 'GIBBs_RA_corr'
+modules <- read.csv('res_node_table_0.9.csv')
+
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 
+            'k', 'mg', 'fe', 'mn', 'zn')
+myData <- 'EC_RA_corr'
 
 counter <- 1
 for (myVar in myVars) {
@@ -1257,6 +1259,10 @@ for (myVar in myVars) {
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE)) # sort levels by median VIP
   
+  gDF <- gDF %>%
+    left_join(modules[,c('X', 'module')], by=c("Predictor"="X")) %>%
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE)) # sort levels by median VIP
+      
   # filter out poor indicators
   temp <- gDF %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
@@ -1266,25 +1272,34 @@ for (myVar in myVars) {
     filter(Predictor %in% temp$Predictor)
   
   #colors <- paletteer_d(`"ggsci::category20_d3"`)
-  colors <- c("Biocontrol" = "#1F77B4FF", 
+  colors <- c("Biocontrol" = "#1F77B4FF",
               "C cycling" = "#FF7F0EFF",
               "C/N cycling" = "#2CA02CFF",
-              "N cycling" = "#D62728FF", 
-              "P cycling" = "#9467BDFF", 
+              "N cycling" = "#D62728FF",
+              "P cycling" = "#9467BDFF",
               "S cycling" = "#8C564BFF",
               "Stess" = "#E377C2FF",
               "Siderophore" = "#7F7F7FFF",
               "Other" = "white")
+  
   means <- aggregate(VIP ~ Predictor, gDF, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
+
+  maxs <- aggregate(VIP ~ Predictor, gDF, max)
+  means$y <- maxs$VIP + 0.025
+  
+  means2 <- aggregate(VIP ~ Predictor + module, gDF, median)
+  means2$Category <- 'Other'
+  
   p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
     geom_point(aes(fill=Category), shape=21) + 
     #stat_summary(fun=mean, colour="black", geom="point", 
     #            shape=18, size=3, show.legend=FALSE) + 
-    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
+    geom_text(data = means, aes(label = VIP, y = y), size=2.8, fontface='italic', angle=30) +
+    geom_text(data = means2, aes(label = module, y = -0.025), size=2.8, angle=0) +
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
@@ -1412,38 +1427,66 @@ SAMP <- sample_data(ml_EC_16S[,c('SampleID', 'State', 'Site')])
 sample_names(SAMP) <- ml_EC_16S$SampleID
 
 P <- merge_phyloseq(SAMP, OTU, TAX)
-
-EC.meco <- phyloseq2meco(P)
+P.filt <- filter_taxa(P, function(x) mean(x) > 0.01, TRUE) # 1506 EC's
+  
+EC.meco <- phyloseq2meco(P.filt)
 
 t1 <- clone(EC.meco)
 
-t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", filter_thres = 0.001)
-t1$cal_network(COR_p_thres = 0.01, COR_cut=0.7, add_taxa_name='order') # 0.69
+t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", 
+                        taxa_level='order', filter_thres = 0)
+
+
+t1$cal_network(COR_p_thres = 0.01, COR_cut=0.9, add_taxa_name='order', 
+               delete_unlinked_nodes=FALSE)
 t1$cal_module(method ='cluster_fast_greedy')
 t1$cal_eigen()
-t1$get_node_table(node_roles=TRUE) 
+t1$get_node_table(node_roles=FALSE) 
 t1$get_edge_table()
+write.csv(t1$res_node_table, 'res_node_table_0.9.csv')
 
-colors <- rep(paletteer::paletteer_d("ggsci::default_igv", 51),3)
+colors <- rep(paletteer::paletteer_d("ggsci::default_igv", 51),6)
 network <- t1$res_network
 network_layout <- create_layout(network, layout = 'fr')
 node_table <- t1$res_node_table
 node_table$name <- row.names(node_table)
 use_network_layout <- dplyr::left_join(network_layout, node_table, by='name')
-
+use_network_layout$kingdom <- gsub('k__', '', use_network_layout$kingdom)
 g <- ggraph(use_network_layout) +
   geom_edge_link(aes(col = label, width = weight), alpha = 0.8) +
-  geom_node_point(aes(fill = module.x, size = degree), shape = 21) +
-  scale_fill_manual(values = colors, name = 'Module') +
+  geom_node_point(aes(fill = kingdom, size = degree), shape = 21) +
+  scale_fill_manual(values = colors, name = 'Class') +
   scale_edge_width(range = c(0.5, 2)) +
-  theme_void() +
-  theme(legend.position='none')
-g
-ggsave('network.pdf')
-ggsave(paste0("../../dan_out_2/", "All_", myData, "_network.png"), device='png', dpi=600, height=8, width=11)
+  theme_void() #+
+  #theme(legend.position = 'none')
+ggsave(paste0("../../dan_out_2/", "All_", myData, "_network_0.9.png"), device='png', dpi=600, height=8, width=11)
 
 
-t1$plot_taxa_roles(use_type = 1)
+# meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn','zn','clay')]
+# row.names(meta) <- ml_EC_16S$SampleID
+# t2 <- trans_env$new(dataset = EC.meco, add_data = meta)
+# t2$cal_cor(add_abund_table = t1$res_eigen)
+# p <- t2$plot_cor()
+
+#random forest with modules
+meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn','zn','clay')]
+row.names(meta) <- ml_EC_16S$SampleID
+
+#t2 <- t1$trans_comm(use_col="module", abundance=TRUE)
+train <- cbind(meta[,'ace'], t1$res_eigen)
+names(train)[1] <- 'ace'
+
+my_cforest_control <- cforest_control(teststat = "quad",
+          testtype = "Univ", mincriterion = 0, ntree = 500,
+          mtry = ceiling(37/3),
+          replace = FALSE)
+
+cf.train <- cforest(ace ~ ., data = train,
+                    controls = my_cforest_control)
+
+imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
+                        conditional=FALSE, threshold=0.2, asParty=FALSE,
+                        thresholdDiagnostics = FALSE, progressBar = TRUE)
 
 
 ```

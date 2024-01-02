@@ -5,8 +5,6 @@ date: "2023-09-18"
 output: html_document
 ---
 
-### Need to remake all figures with new model results
-
 ### Libraries
 ```{r}
 library(ggplot2)
@@ -18,6 +16,8 @@ library(sjPlot)
 library(cowplot)
 library(janitor)
 library(phyloseq)
+library(M3C)
+library(vegan)
 ```
 
 ### Comparison R^2 of different data types
@@ -63,9 +63,7 @@ ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 30
 ```
 
 ### Feature importance distributions
-# don't need to filter or scale, can just select the top 20 important features
-# will need to change how I import the varimps since they are now in their own file for each of the 1-25 runs
-
+###### regraph 0.7, 0.8, 0.9 modules
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
@@ -74,6 +72,9 @@ gibbs$EC <- gsub(":","_", gibbs$EC)
 gibbs$EC <- gsub("\\.","_", gibbs$EC)
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+
+modules <- read.csv("scripts/16S_EC/res_node_table_0.9.csv")
+colnames(modules)[1] <- "Predictor"
 
 # models with all enzymes
 for (myVar in myVars) {
@@ -88,7 +89,10 @@ for (myVar in myVars) {
 
   gDF <- varimps_full %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
+    left_join(modules, by = join_by(Predictor)) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+  
+  gDF$module <- as.factor(gDF$module)
 
   # filter out poor indicators
   temp <- gDF %>% group_by(Predictor) %>%
@@ -98,34 +102,33 @@ for (myVar in myVars) {
   gDF <- gDF %>%
     filter(Predictor %in% temp$Predictor)
   
-  #colors <- paletteer_d(`"ggsci::category20_d3"`)
-  colors <- c("Biocontrol" = "#1F77B4FF", 
-              "C cycling" = "#FF7F0EFF",
-              "C/N cycling" = "#2CA02CFF",
-              "N cycling" = "#D62728FF", 
-              "P cycling" = "#9467BDFF", 
-              "S cycling" = "#8C564BFF",
-              "Stess" = "#E377C2FF",
-              "Siderophore" = "#7F7F7FFF",
-              "Other" = "white")
+  colors <- paletteer_d(`"ggsci::category20_d3"`)
+  # colors <- c("Biocontrol" = "#1F77B4FF", 
+  #             "C cycling" = "#FF7F0EFF",
+  #             "C/N cycling" = "#2CA02CFF",
+  #             "N cycling" = "#D62728FF", 
+  #             "P cycling" = "#9467BDFF", 
+  #             "S cycling" = "#8C564BFF",
+  #             "Stess" = "#E377C2FF",
+  #             "Siderophore" = "#7F7F7FFF",
+  #             "Other" = "white")
   
   means <- aggregate(VIP ~ Predictor, gDF, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=module)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
-    geom_point(aes(fill=Category), shape=21) + 
+    geom_point(aes(fill=module), shape=21) + 
     #stat_summary(fun=mean, colour="black", geom="point", 
     #            shape=18, size=3, show.legend=FALSE) + 
-    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
+    #geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    ggsave(paste0("figures/", myVar, "_RA_corr_varimp.png"), device='png', dpi=600, height=6, width=8)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.9.png"), device='png', dpi=600, height=6, width=8)
   
-  # before was writing to this file to use in the final models, but not sure this is what we want to do now - how do we select what features should go in the final model?
   #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps.csv", 
   #            col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
 }
@@ -141,9 +144,12 @@ for (myVar in myVars) {
   varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
   varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
 
-  gDF <- varimps_full %>%
+ gDF <- varimps_full %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
+    left_join(modules, by = join_by(Predictor)) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+  
+  gDF$module <- as.factor(gDF$module)
 
   # filter out poor indicators
   temp <- gDF %>% group_by(Predictor) %>%
@@ -153,32 +159,32 @@ for (myVar in myVars) {
   gDF <- gDF %>%
     filter(Predictor %in% temp$Predictor)
   
-  #colors <- paletteer_d(`"ggsci::category20_d3"`)
-  colors <- c("Biocontrol" = "#1F77B4FF", 
-              "C cycling" = "#FF7F0EFF",
-              "C/N cycling" = "#2CA02CFF",
-              "N cycling" = "#D62728FF", 
-              "P cycling" = "#9467BDFF", 
-              "S cycling" = "#8C564BFF",
-              "Stess" = "#E377C2FF",
-              "Siderophore" = "#7F7F7FFF",
-              "Other" = "white")
+  colors <- paletteer_d(`"ggsci::category20_d3"`)
+  # colors <- c("Biocontrol" = "#1F77B4FF", 
+  #             "C cycling" = "#FF7F0EFF",
+  #             "C/N cycling" = "#2CA02CFF",
+  #             "N cycling" = "#D62728FF", 
+  #             "P cycling" = "#9467BDFF", 
+  #             "S cycling" = "#8C564BFF",
+  #             "Stess" = "#E377C2FF",
+  #             "Siderophore" = "#7F7F7FFF",
+  #             "Other" = "white")
   
   means <- aggregate(VIP ~ Predictor, gDF, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=module)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
-    geom_point(aes(fill=Category), shape=21) + 
+    geom_point(aes(fill=module), shape=21) + 
     #stat_summary(fun=mean, colour="black", geom="point", 
     #            shape=18, size=3, show.legend=FALSE) + 
-    geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
+    #geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    ggsave(paste0("figures/", myVar, "_RA_corr_GIBBs_varimp.png"), device='png', dpi=600, height=6, width=8)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.9.png"), device='png', dpi=600, height=6, width=8)
   
   # before was writing to this file to use in the final models, but not sure this is what we want to do now - how do we select what features should go in the final model?
   #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps_GIBBs.csv", 
@@ -188,6 +194,7 @@ for (myVar in myVars) {
 
 ### Make varimp list of GIBBs + important features for each indicator
 ####### can probably erase this after I run the final models - should be there and not here
+####### probably won't do the final models, so can likely get rid of this later
 ```{r}
 varimp_df <- read.csv("machine_learning/16S_EC/final_varimps.csv", header = FALSE)
 
@@ -212,6 +219,7 @@ for (myVar in myVars) {
 # rerun these with new model results
 # haven't yet rerun final models because we may be reducing colinear features
 # I also need to unscale clay when it is included
+# may or may not do the final models, so not sure if we need this
 ```{r}
 # show response of important features to each indicator
 # the nutrients aren't scaled, so process those in a separate loop
@@ -338,8 +346,7 @@ for (myVar in myVars1) {
 # might need to standardize the y axis limits at some point but this is good enough for now
 ```
 
-### Relative abundance of ECs by subclasses
-# redo part of this section using the R way to collapse into sublevels and subsublevels - more reproducible
+### Relative abundance of ECs by subclasses and subsubclasses
 ```{r}
 ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
 
@@ -348,145 +355,26 @@ ECs2_t <- t(ECs2)
 ECs2_t <- data.frame(ECs2_t)
 ECs2_t <- rownames_to_column(ECs2_t, var = "ECs")
 
-# make a vector of names
-EC_names <- names(ECs2)
-
-# create list of subclasses
-new <- unique(vapply(strsplit(EC_names, '\\.'), function(x) 
-            paste(x[1:2], collapse='.'), character(1L)))
-new <- paste0(new, ".") # adds a period at the end - needed for filtering the original df
-
 # collapse EC list to subclasses
-
-# one try here - not quite working
-for (i in new){
-  if (i %in% ECs2_t$ECs) {
-    ECs2_sc <- replace(ECs2_t$ECs)
-  }
-}
-
-# another try using gsub
-ECs2_sc <- gsub(new, ECs2_t$ECs, ECs2_t)
-
-
-
+pattern <- "EC:(.*)\\.(.*)\\."
+ECs2_t$ECs_subclass <- regmatches(ECs2_t$ECs, regexec(pattern, ECs2_t$ECs))
+ECs2_t$ECs_subclass2 <- sapply(ECs2_t$ECs_subclass, "[[", 2)
+ECs2_sc <- ECs2_t[,c(2:537,539)]
+ECs2_sc <- ECs2_sc %>% 
+  group_by(ECs_subclass2) %>% 
+  summarise_all(., .funs = sum)
+  
+# add EC: back as prefix
+ECs2_sc$ECs_subclass2 <- paste0("EC:", ECs2_sc$ECs_subclass2)
 
 # format "otu" table for importing into phyloseq
-EC_subclass_t <- t(EC_subclass) %>% 
-  row_to_names(row_number = 1)
-EC_subclass_t <- as.matrix(EC_subclass_t)
-EC_subclass_otu <- EC_subclass_t[63:123,]
-EC_subclass_otu <- data.frame(EC_subclass_otu)
+ECs2_sc <- column_to_rownames(ECs2_sc, var = "ECs_subclass2")
 
-EC_subclass_otu_num <- lapply(EC_subclass_otu, as.numeric)
-EC_subclass_otu_num <- data.frame(EC_subclass_otu_num)
-rownames(EC_subclass_otu_num) <- rownames(EC_subclass_otu)
-
-OTU = otu_table(EC_subclass_otu_num, taxa_are_rows = TRUE)
-
-# format sample data for importing into phyloseq
-EC_subclass_sam <- EC_subclass[,c(1:63,125:212)]
-EC_subclass_sam <- column_to_rownames(EC_subclass_sam, var = "SampleID")
-EC_subclass_sam$SHMI2_bin <- factor(EC_subclass_sam$SHMI2_bin, levels = c("very low","low","medium","high","very high"))
-EC_subclass_sam$SH_bin <- factor(EC_subclass_sam$SH_bin, levels = c("very low","low","medium","high","very high"))
-
-SAM <- sample_data(EC_subclass_sam)
-
-# use the EC description as "taxa"
-EC_desc <- read_xlsx("ec_files_expasy/enzclass_R.xlsx")
-EC_desc <- column_to_rownames(EC_desc, var = "EC")
-EC_desc <- as.matrix(EC_desc)
-TAX <- tax_table(EC_desc)
-
-# create phyloseq object
-p_subclass <- phyloseq(OTU, TAX, SAM)
-
-# make SHMI bar charts
-plot_bar(p_subclass, x = "SHMI2_bin", fill = "Order") + 
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  labs(x = "SHMI Bin") +
-  scale_fill_discrete(name = "Subclass")
-ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
-
-# make SEMWISE bar charts
-plot_bar(p_subclass, x = "SH_bin", fill = "Order") + # subclass
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  labs(x = "SEMWISE Bin") +
-  scale_fill_discrete(name = "Subclass")
-ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
-
-### subsubclass level data
-# start from level 4 EC data and collapse to the subsubclass level in R
-ECs <- read.csv("machine_learning/EC_RA_corr/ml_EC_RA_corr.csv", check.names = FALSE)
-
-EC_subsubclass_list <- c("EC:1.1.1","EC:1.1.2","EC:1.1.3","EC:1.1.5","EC:1.1.9","EC:1.1.98","EC:1.1.99",
-"EC:1.10.2","EC:1.10.3","EC:1.10.9","EC:1.11.1","EC:1.11.2","EC:1.12.1","EC:1.12.2",
-"EC:1.12.5","EC:1.12.7","EC:1.12.98","EC:1.12.99","EC:1.13.11","EC:1.13.12","EC:1.13.99",
-"EC:1.14.11","EC:1.14.12","EC:1.14.13","EC:1.14.14","EC:1.14.15","EC:1.14.16",
-"EC:1.14.17","EC:1.14.18","EC:1.14.19","EC:1.14.21","EC:1.14.99","EC:1.15.1",
-"EC:1.16.1","EC:1.16.3","EC:1.16.8","EC:1.17.1","EC:1.17.2","EC:1.17.3","EC:1.17.4",
-"EC:1.17.5","EC:1.17.7","EC:1.17.99","EC:1.18.1","EC:1.18.6","EC:1.2.1","EC:1.2.3",
-"EC:1.2.4","EC:1.2.5","EC:1.2.7","EC:1.2.98","EC:1.2.99","EC:1.20.1","EC:1.20.4",
-"EC:1.20.9","EC:1.21.4","EC:1.21.98","EC:1.3.1","EC:1.3.3","EC:1.3.4","EC:1.3.5",
-"EC:1.3.7","EC:1.3.8","EC:1.3.98","EC:1.3.99","EC:1.4.1","EC:1.4.3","EC:1.4.4",
-"EC:1.4.7","EC:1.4.9","EC:1.4.99","EC:1.5.1","EC:1.5.3","EC:1.5.5","EC:1.5.8",
-"EC:1.5.98","EC:1.5.99","EC:1.6.1","EC:1.6.2","EC:1.6.3","EC:1.6.5","EC:1.6.99",
-"EC:1.7.1","EC:1.7.2","EC:1.7.3","EC:1.7.7","EC:1.7.99","EC:1.8.1","EC:1.8.2",
-"EC:1.8.3","EC:1.8.4","EC:1.8.5","EC:1.8.7","EC:1.8.98","EC:1.8.99","EC:1.9.3",
-"EC:1.97.1","EC:2.1.1","EC:2.1.2","EC:2.1.3","EC:2.1.4","EC:2.10.1","EC:2.2.1",
-"EC:2.3.1","EC:2.3.2","EC:2.3.3","EC:2.4.1","EC:2.4.2","EC:2.4.99","EC:2.5.1",
-"EC:2.6.1","EC:2.6.99","EC:2.7.1","EC:2.7.10","EC:2.7.11","EC:2.7.14","EC:2.7.2",
-"EC:2.7.3","EC:2.7.4","EC:2.7.6","EC:2.7.7","EC:2.7.8","EC:2.7.9","EC:2.8.1",
-"EC:2.8.2","EC:2.8.3","EC:2.8.4","EC:2.9.1","EC:3.1.1","EC:3.1.11","EC:3.1.12",
-"EC:3.1.13","EC:3.1.2","EC:3.1.21","EC:3.1.22","EC:3.1.25","EC:3.1.26","EC:3.1.27",
-"EC:3.1.3","EC:3.1.30","EC:3.1.31","EC:3.1.4","EC:3.1.5","EC:3.1.6","EC:3.1.7",
-"EC:3.1.8","EC:3.10.1","EC:3.11.1","EC:3.13.1","EC:3.2.1","EC:3.2.2","EC:3.3.1",
-"EC:3.3.2","EC:3.4.11","EC:3.4.13","EC:3.4.14","EC:3.4.15","EC:3.4.16","EC:3.4.17",
-"EC:3.4.19","EC:3.4.21","EC:3.4.22","EC:3.4.23","EC:3.4.24","EC:3.4.25","EC:3.5.1",
-"EC:3.5.2","EC:3.5.3","EC:3.5.4","EC:3.5.5","EC:3.5.99","EC:3.6.1","EC:3.6.3",
-"EC:3.6.4","EC:3.7.1","EC:3.8.1","EC:4.1.1","EC:4.1.2","EC:4.1.3","EC:4.1.99",
-"EC:4.2.1","EC:4.2.2","EC:4.2.3","EC:4.2.99","EC:4.3.1","EC:4.3.2","EC:4.3.3",
-"EC:4.3.99","EC:4.4.1","EC:4.6.1","EC:4.7.1","EC:4.99.1","EC:5.1.1","EC:5.1.2",
-"EC:5.1.3","EC:5.1.99","EC:5.2.1","EC:5.3.1","EC:5.3.2","EC:5.3.3","EC:5.3.4",
-"EC:5.3.99","EC:5.4.1","EC:5.4.2","EC:5.4.3","EC:5.4.4","EC:5.4.99","EC:5.5.1",
-"EC:5.99.1","EC:6.1.1","EC:6.1.2","EC:6.2.1","EC:6.3.1","EC:6.3.2","EC:6.3.3",
-"EC:6.3.4","EC:6.3.5","EC:6.4.1","EC:6.5.1","EC:6.6.1")
-
-EC_subsubclass_list2 <- paste0(EC_subsubclass_list,".")
-
-for (i in EC_subsubclass_list2) {
-  name <- paste0("Sum.", substr(i, 1, nchar(i)-1))
-  temp <- ECs %>%
-    select(starts_with(i)) %>%
-    mutate(!!name := rowSums(., na.rm=T)) %>%
-    select(!starts_with(i))
-  ECs[,name] <- as.vector(temp)
-}
-
-# format "otu" table for importing into phyloseq
-EC_subsubclass_t <- t(ECs) %>% 
-  row_to_names(row_number = 1)
-EC_subsubclass_t <- as.matrix(EC_subsubclass_t)
-EC_subsubclass_otu <- EC_subsubclass_t[2588:2807,]
-
-# get EC names to match formatting of "tax" table
-x <- row.names(EC_subsubclass_otu)
-rownames(EC_subsubclass_otu) <- substring(x, 5)
-
-EC_subsubclass_otu <- data.frame(EC_subsubclass_otu)
-EC_subsubclass_otu_num <- lapply(EC_subsubclass_otu, as.numeric)
-EC_subsubclass_otu_num <- data.frame(EC_subsubclass_otu_num)
-rownames(EC_subsubclass_otu_num) <- rownames(EC_subsubclass_otu)
-
-# replace colon with . so it matches taxa names in "tax" table
-row.names(EC_subsubclass_otu_num) <- sub(':', '\\.', row.names(EC_subsubclass_otu_num))
-
+# attach sample names to column names
 sample_names <- ECs$SampleID
-colnames(EC_subsubclass_otu_num) <- sample_names
+colnames(ECs2_sc) <- sample_names
 
-OTU = otu_table(EC_subsubclass_otu_num, taxa_are_rows = TRUE)
+OTU = otu_table(ECs2_sc, taxa_are_rows = TRUE)
 
 # format sample data for importing into phyloseq
 EC_sam <- ECs[,c(2:3,2440:2588)]
@@ -500,17 +388,193 @@ SAM <- sample_data(EC_sam)
 EC_desc <- read_xlsx("ec_files_expasy/enzclass_R.xlsx")
 EC_desc <- column_to_rownames(EC_desc, var = "EC")
 EC_desc <- as.matrix(EC_desc)
-EC_desc <- EC_desc[,1:3]
+TAX <- tax_table(EC_desc)
+
+# create phyloseq object
+p_subclass <- phyloseq(OTU, TAX, SAM)
+
+# make SHMI bar chart
+p_df <- psmelt(p_subclass)
+ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "SHMI Bin") +
+  scale_fill_discrete(name = "Subclass")
+ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+
+# make SEMWISE bar chart
+ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "SEMWISE Bin") +
+  scale_fill_discrete(name = "Subclass")
+ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+
+# graph each subclass on its own
+# in p_df, create a column with just subclass and filter by that
+p_df$subclass = substr(p_df$OTU, start = 4, stop = 4)
+unique(p_df$subclass)
+
+# create df for each subclass
+# 1 = oxidoreductases
+# 2 = transferases
+# 3 = hydrolases
+# 4 = lyases
+# 5 = isomerases
+# 6 = ligases
+
+p_df_1 <- subset(p_df, subclass == "1")
+p_df_2 <- subset(p_df, subclass == "2")
+p_df_3 <- subset(p_df, subclass == "3")
+p_df_4 <- subset(p_df, subclass == "4")
+p_df_5 <- subset(p_df, subclass == "5")
+p_df_6 <- subset(p_df, subclass == "6")
+
+# SHMI bar charts for all levels, combine and save
+p1 <- ggplot(p_df_1, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Oxidoreductases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p2 <- ggplot(p_df_2, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Transferases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p3 <- ggplot(p_df_3, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Hydrolases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p4 <- ggplot(p_df_4, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Lyases") +
+  scale_fill_discrete(name = "Subclass") + 
+  ylim(0,250)
+p5 <- ggplot(p_df_5, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Isomerases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p6 <- ggplot(p_df_6, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Ligases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p_SHMI_all <- ggarrange(p1,p2,p3,p4,p5,p6,
+                    nrow = 2, ncol = 3)
+p_SHMI_all <- annotate_figure(p_SHMI_all, 
+                              bottom = text_grob("SHMI Bin"),
+                              left = text_grob("Abundance", rot = 90))
+p_SHMI_all
+ggsave("figures/EC_abund_SHMI_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
+
+# SEMWISE bar charts for all levels, combine and save
+p1 <- ggplot(p_df_1, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Oxidoreductases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p2 <- ggplot(p_df_2, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Transferases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p3 <- ggplot(p_df_3, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Hydrolases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p4 <- ggplot(p_df_4, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Lyases") +
+  scale_fill_discrete(name = "Subclass") + 
+  ylim(0,250)
+p5 <- ggplot(p_df_5, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Isomerases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p6 <- ggplot(p_df_6, aes(x = SH_bin, y = Abundance, fill = Family)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "", y = "", title = "Ligases") +
+  scale_fill_discrete(name = "Subclass") +
+  ylim(0,250)
+p_SEMWISE_all <- ggarrange(p1,p2,p3,p4,p5,p6,
+                    nrow = 2, ncol = 3)
+p_SEMWISE_all <- annotate_figure(p_SEMWISE_all, 
+                              bottom = text_grob("SEMWISE Bin"),
+                              left = text_grob("Abundance", rot = 90))
+p_SEMWISE_all
+ggsave("figures/EC_abund_SEMWISE_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
+
+
+# subsubclass level
+# collapse EC list to subclasses
+pattern <- "EC:(.*)\\.(.*)\\.(.*)\\."
+ECs2_t$ECs_subsubclass <- regmatches(ECs2_t$ECs, regexec(pattern, ECs2_t$ECs))
+ECs2_t$ECs_subsubclass2 <- sapply(ECs2_t$ECs_subsubclass, "[[", 1)
+ECs2_ssc <- ECs2_t[,c(2:537,541)]
+ECs2_ssc$ECs_subsubclass2 = substr(ECs2_ssc$ECs_subsubclass2, 1, nchar(ECs2_ssc$ECs_subsubclass2)-1)
+ECs2_ssc <- ECs2_ssc %>% 
+  group_by(ECs_subsubclass2) %>% 
+  summarise_all(., .funs = sum)
+
+# format "otu" table for importing into phyloseq
+ECs2_ssc <- column_to_rownames(ECs2_ssc, var = "ECs_subsubclass2")
+
+# attach sample names to column names
+sample_names <- ECs$SampleID
+colnames(ECs2_ssc) <- sample_names
+
+OTU = otu_table(ECs2_ssc, taxa_are_rows = TRUE)
+
+# format sample data for importing into phyloseq
+EC_sam <- ECs[,c(2:3,2440:2588)]
+EC_sam <- column_to_rownames(EC_sam, var = "SampleID")
+EC_sam$SHMI2_bin <- factor(EC_sam$SHMI2_bin, levels = c("very low","low","medium","high","very high"))
+EC_sam$SH_bin <- factor(EC_sam$SH_bin, levels = c("very low","low","medium","high","very high"))
+
+SAM <- sample_data(EC_sam)
+
+# use the EC description as "taxa"
+EC_desc <- read_xlsx("ec_files_expasy/enzclass_R.xlsx")
+EC_desc <- column_to_rownames(EC_desc, var = "EC")
+EC_desc <- as.matrix(EC_desc)
 TAX <- tax_table(EC_desc)
 
 # create phyloseq object
 p_subsubclass <- phyloseq(OTU, TAX, SAM)
 
-# bar chart
+# make SHMI bar chart
 p_df <- psmelt(p_subsubclass)
-
-# this works for genus and family level
-ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Genus)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -518,23 +582,40 @@ ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   scale_fill_discrete(name = "Sub-subclass")
 ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
-ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
+# make SEMWISE bar chart
+ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Genus)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "SEMWISE Bin") +
   scale_fill_discrete(name = "Sub-subclass")
 ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
-
 ```
 
-### PCOA at subsubclass level just to see what it looks like
-# redo these using tsne
+### PCOAs using tsne
 ```{r}
-p_ord <- ordinate(p_subsubclass, "CCA", "morisita")
-plot_ordination(p_subsubclass, p_ord, "samples", color = "Previous_Crop")
+P <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
 
-# in .dkm3 script, at line 903 there is better pcoa code - tsne
+gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
+gibbs <- gibbs %>%
+  filter(Missing != 'x')
+
+data <- P %>%
+  select(gibbs$EC)
+
+meta <- P
+
+#tsne_out <- Rtsne::Rtsne(data, perplexity=15, max_iter=1000)
+#plot(tsne_out$Y)
+
+p1 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + theme_bw() +
+  geom_point(aes(fill=meta$ClimateZ, shape=meta$Current_Land_Use), size=4) +
+  scale_shape_manual(values=c(21,22,23,24)) +
+  guides(size="none",
+         fill = guide_legend(override.aes = list(size = 4, shape=21))) +
+  labs(fill="ClimateZ", shape="Land Use", x="tSNE 1", y="tSNE 2")
+p1
+ggsave(paste0("figures/All_GIBBs_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
 ```
 
 ### quick plot of climate by activeC
