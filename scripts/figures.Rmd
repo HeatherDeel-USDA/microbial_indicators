@@ -534,7 +534,6 @@ p_SEMWISE_all <- annotate_figure(p_SEMWISE_all,
 p_SEMWISE_all
 ggsave("figures/EC_abund_SEMWISE_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
 
-
 # subsubclass level
 # collapse EC list to subclasses
 pattern <- "EC:(.*)\\.(.*)\\.(.*)\\."
@@ -590,6 +589,12 @@ ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Genus)) +
   labs(x = "SEMWISE Bin") +
   scale_fill_discrete(name = "Sub-subclass")
 ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+```
+
+### Graph relative abundance of modules
+```{r}
+# need to bring in module data, merge with relabund data
+# also need to decide which correlation coefficient to use. 0.7?
 ```
 
 ### PCOAs using tsne
