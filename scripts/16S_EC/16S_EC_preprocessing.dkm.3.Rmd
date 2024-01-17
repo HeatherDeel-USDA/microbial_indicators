@@ -1435,8 +1435,6 @@ t1 <- clone(EC.meco)
 
 t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", 
                         taxa_level='order', filter_thres = 0)
-
-
 t1$cal_network(COR_p_thres = 0.01, COR_cut=0.8, add_taxa_name='order', 
                delete_unlinked_nodes=FALSE)
 t1$cal_module(method ='cluster_fast_greedy')
@@ -1462,7 +1460,7 @@ g <- ggraph(use_network_layout) +
   scale_edge_width(range = c(0.5, 2)) +
   theme_void() #+
   #theme(legend.position = 'none')
-ggsave(paste0("../../dan_out_2/", "All_", myData, "_network_0.9.png"), device='png', dpi=600, height=8, width=11)
+ggsave(paste0("../../dan_out_2/", "All_", myData, "_network_0.8.png"), device='png', dpi=600, height=8, width=11)
 
 
 # meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn','zn','clay')]
@@ -1476,8 +1474,16 @@ meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn',
 row.names(meta) <- ml_EC_16S$SampleID
 
 df <- cbind(meta, t1$res_eigen)
-#names(train)[1] <- 'ace'
+df$ClimateZ <- factor(df$ClimateZ)
 
+mod <- lm(M1 ~ ClimateZ * clay, data=df)
+anova(mod)
 
+ggplot(df, aes(x=clay, y=M1, fill=ClimateZ, color=ClimateZ)) + 
+  geom_point(shape=21) +
+  stat_smooth(method = "lm", se=FALSE)
+
+ggplot(df, aes(x=ClimateZ, y=M1, fill=ClimateZ)) + 
+  geom_boxplot()
 
 ```

@@ -426,15 +426,6 @@ ggplot(p_df_subsubclass, aes(x = SH_bin, y = Abundance, fill = Genus)) +
 
 ### Graph relative abundance of modules
 ```{r}
-# need to bring in module data, merge with relabund data
-# use correlation coefficient of 0.8
-# need to decide with modules to graph for each indicator - they will be different for each indicator
-# Want to graph the same modules between all enzymes and gibbs
-
-# think on how to approach this - need each OTU to be associated with a module. Can't do that in the sample file
-# think I need to not use phyloseq, and create one file for each module where all of the ECs within that module are summed up and I look at the relative abundance of that
-# and also need to bring in SHMI and SEMWISE within each module file
-
 # start with ECs2_t, filter out extra columns
 ECs2_t2 <- ECs2_t[,1:537]
 ECs2_t2 <- column_to_rownames(ECs2_t2, var = "ECs")
@@ -450,14 +441,24 @@ ECs2_t2 <- rownames_to_column(ECs2_t2, var = "Predictor")
 ECs_mod <- ECs2_t2 %>% 
   left_join(modules, by = join_by(Predictor))
 
+ECs_mod <- column_to_rownames(ECs_mod, var = "Predictor")
+ECs_mod <- ECs_mod[,c(1:536,543)]
+ECs_mod <- ECs_mod %>% 
+  filter(module != "NA")
 
+# replace the M in module names so I can convert the column to numeric
+ECs_mod$module <- gsub("M","", ECs_mod$module)
+ECs_mod$module <- as.numeric(ECs_mod$module)
 
-# notes:
-# formatting for input into a phyloseq object (if needed, decide what formatting to do. Line graph or bar chart?)
-# maybe just do a line graph for modules of interest? can have a faceted plot for each indicator 
-# I do need a phyloseq object so I can look at modules across soil health
-# Could perhaps do a loop to generate a graph for each module, but that's way too many
-# I think I need to create a manual list of the modules to graph for each indicator
+OTU = otu_table(ECs_mod, taxa_are_rows = TRUE)
+
+# create new TAX file, need full EC names
+EC_full <- read_csv("ec_files_expasy/enzyme_R.csv")
+EC_full <- column_to_rownames(EC_full, var = "Predictor")
+EC_full <- as.matrix(EC_full)
+TAX <- tax_table(EC_full)
+
+p_mod <- phyloseq(OTU, TAX, SAM)
 
 
 
