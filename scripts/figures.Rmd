@@ -460,6 +460,10 @@ TAX <- tax_table(EC_full)
 
 p_mod <- phyloseq(OTU, TAX, SAM)
 
+# ACE line graph
+p_mod_melt <- psmelt(p_mod)
+# pick modules to filter down to
+# can I use the sample column to filter down to each module? I'm closer but not sure I got the formatting quite right
 
 
 
