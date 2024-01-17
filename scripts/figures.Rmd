@@ -38,8 +38,8 @@ p1 <- ggplot(ml_stats, aes(x=myVar, y=r2_val, fill = RA_total_GIBBs)) +
                               "pH","Respiration","SOM","Water Capacity","Zn"))
 p1
 
-ggsave("figures/ml_ec_r2_all.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
+#ggsave("figures/ml_ec_r2_all.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+#ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Boxplot of R^2 values for each indicator
@@ -58,13 +58,13 @@ p1 <- ggplot(ml_stats_RA, aes(x=myVar, y=r2_val)) +
                               "pH","Respiration","SOM","Water Capacity","Zn"))
 p1
 
-ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
-ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
+#ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+#ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Feature importance distributions
-###### regraph 0.7, 0.8, 0.9 modules
 ```{r}
+# using results from a correlation coefficient of 0.8
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
   filter(Missing != 'x')
@@ -73,7 +73,7 @@ gibbs$EC <- gsub("\\.","_", gibbs$EC)
 
 myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
 
-modules <- read.csv("scripts/16S_EC/res_node_table_0.9.csv")
+modules <- read.csv("scripts/16S_EC/res_node_table_0.8.csv")
 colnames(modules)[1] <- "Predictor"
 
 # models with all enzymes
@@ -120,17 +120,11 @@ for (myVar in myVars) {
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
     geom_point(aes(fill=module), shape=21) + 
-    #stat_summary(fun=mean, colour="black", geom="point", 
-    #            shape=18, size=3, show.legend=FALSE) + 
-    #geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.9.png"), device='png', dpi=600, height=6, width=8)
-  
-  #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps.csv", 
-  #            col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
+    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
 }
 
 # models with GIBBs enzymes
@@ -177,173 +171,12 @@ for (myVar in myVars) {
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot() + 
     geom_point(aes(fill=module), shape=21) + 
-    #stat_summary(fun=mean, colour="black", geom="point", 
-    #            shape=18, size=3, show.legend=FALSE) + 
-    #geom_text(data = means, aes(label = VIP, y = -0.025), size=2.8, fontface='italic', angle=30) +
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.9.png"), device='png', dpi=600, height=6, width=8)
-  
-  # before was writing to this file to use in the final models, but not sure this is what we want to do now - how do we select what features should go in the final model?
-  #write.table(cbind(gDF, myVar), file = "machine_learning/16S_EC/final_varimps_GIBBs.csv", 
-  #            col.names = FALSE, row.names = FALSE, append = TRUE, sep = ",")
+    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
 }
-```
-
-### Make varimp list of GIBBs + important features for each indicator
-####### can probably erase this after I run the final models - should be there and not here
-####### probably won't do the final models, so can likely get rid of this later
-```{r}
-varimp_df <- read.csv("machine_learning/16S_EC/final_varimps.csv", header = FALSE)
-
-colnames(varimp_df) <- c("Predictor","VIP","Run","Category","Class","Sub_class",
-                         "Name","Short","Book","Missing","VIP_scaled","all_gibbs",
-                         "indicator")
-
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-
-for (myVar in myVars) {
-  varimp_df_filt <- filter(varimp_df, indicator == myVar)
-  varimp_df_list <- varimp_df_filt %>% 
-    group_by(Predictor) %>% 
-    summarize(VIP_scaled_avg = mean(VIP_scaled))
-  write.csv(varimp_df_list, file = paste0("machine_learning/16S_FINAL/", myVar,"_EC_GIBBs_final.csv"),
-            row.names = FALSE)
-}
-```
-
-### Partial dependence plots of final models
-### To do:
-# rerun these with new model results
-# haven't yet rerun final models because we may be reducing colinear features
-# I also need to unscale clay when it is included
-# may or may not do the final models, so not sure if we need this
-```{r}
-# show response of important features to each indicator
-# the nutrients aren't scaled, so process those in a separate loop
-myVars1 <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap')
-
-myVar <- 'agg_stab'
-
-# read in data.pred so I can use the attributes to unscale the indicators
-data.pred <- readRDS("metadata/data.pred.SHMI.RDS")
-
-for (myVar in myVars1) {
-  # read in and format files
-  filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = paste0(myVar,"_final_pd_Predictor*"), full.names = TRUE)
-  predictors <- lapply(filenames, read.csv, header = FALSE)
-  colnames <- c("predictor","predictor_value","indicator_response")
-  predictors <- lapply(predictors, setNames, colnames)
-  
-  # create df with scaling attributes
-  scale_attr <- data.frame(attributes(data.pred[[myVar]]))
-  scaled_scale <- scale_attr$scaled.scale[1]
-  scaled_center <- scale_attr$scaled.center[1]
-  
-  # unscale
-  for (i in seq_along(predictors)) {
-    predictors[[i]]$unscaled <- (predictors[[i]]$indicator_response * scaled_scale) + scaled_center
-  }
-  
-  # create functions for making pdps and bar charts
-  make_graphs <- function(x) {
-    ggplot(x, aes(x = predictor_value, y = unscaled, group = factor(predictor))) +
-    geom_line() +
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.text.x = element_text(angle = 90)) +
-    facet_wrap(~predictor)
-  }
-  make_bargraphs <- function(x) {
-    ggplot(x, aes(x = predictor_value, y = unscaled, group = factor(predictor))) +
-    geom_bar(stat = 'identity') +
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.text.x = element_text(angle = 90)) +
-      facet_wrap(~predictor)
-  }
-  
-  # make pdps and climate bar charts
-  for (i in seq_along(predictors)) {
-    if (predictors[[i]]$predictor[1] == "ClimateZ") { 
-      p1 = make_bargraphs(predictors[[i]])
-    }
-    if (predictors[[i]]$predictor[1] != "ClimateZ") { 
-      predictors_EC <- lapply(predictors, function(x) filter(x, predictor != "ClimateZ"))
-      predictors_EC <- predictors_EC[sapply(predictors_EC, function(x) dim(x)[1]) > 0]
-      
-      p2 = lapply(predictors_EC, make_graphs)
-    }
-  }
-  
-  # merge graphs and save
-  p3 <- ggarrange(p1,p2[[1]],p2[[2]],p2[[3]],p2[[4]], 
-                  p2[[5]],p2[[6]],p2[[7]],p2[[8]],p2[[9]],
-                  nrow = 2, ncol = 5)
-  p3
-  annotate_figure(p3, left = text_grob(myVar, rot = 90),
-                  bottom = text_grob("Feature Value"))
-  ggsave(paste0("figures/pdp/", myVar, "_pdp.png"), unit = "in", width = 10, height = 4, dpi = 300, device = "png")
-}
-
-myVars2 <- c('p', 'k', 'mg', 'fe', 'mn', 'zn','ph')
-
-# read in ml_EC_RA_corr so I can use the attributes to unscale the nutrients and ph
-ml_EC_16S <- readRDS("machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS")
-
-# create df with scaling attributes for each indicator
-scale_attr <- data.frame(attributes(ml_EC_16S[[myVars2]]))
-scaled_scale <- scale_attr$scaled.scale[1]
-scaled_center <- scale_attr$scaled.center[1]
-
-for (myVar in myVars1) {
-  filenames <- list.files(paste0("machine_learning/16S_FINAL/",myVar,"_model_results/"), pattern = paste0(myVar,"_final_pd_Predictor*"), full.names = TRUE)
-  predictors <- lapply(filenames, read.csv, header = FALSE)
-  colnames <- c("predictor","predictor_value","indicator_response")
-  predictors <- lapply(predictors, setNames, colnames)
-  for (i in seq_along(predictors)) {
-    predictors[[i]]$unscaled <- predictors[[i]]$indicator_response * scaled_scale + scaled_center
-  }
-  make_graphs <- function(x) {
-    ggplot(x, aes(x = predictor_value, y = unscaled, group = factor(predictor))) +
-    geom_line() +
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.text.x = element_text(angle = 90)) +
-    facet_wrap(~predictor)
-  }
-  make_bargraphs <- function(x) {
-    ggplot(x, aes(x = predictor_value, y = unscaled, group = factor(predictor))) +
-    geom_bar(stat = 'identity') +
-    theme(axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.text.x = element_text(angle = 90)) +
-      facet_wrap(~predictor)
-  }
-  for (i in seq_along(predictors)) {
-    if (predictors[[i]]$predictor[1] == "ClimateZ") { 
-      p1 = make_bargraphs(predictors[[i]])
-    }
-    if (predictors[[i]]$predictor[1] != "ClimateZ") { 
-      predictors_EC <- lapply(predictors, function(x) filter(x, predictor != "ClimateZ"))
-      predictors_EC <- predictors_EC[sapply(predictors_EC, function(x) dim(x)[1]) > 0]
-      
-      p2 = lapply(predictors_EC, make_graphs)
-    }
-  }
-  p3 <- ggarrange(p1,p2[[1]],p2[[2]],p2[[3]],p2[[4]], 
-                  p2[[5]],p2[[6]],p2[[7]],p2[[8]],p2[[9]],
-                  nrow = 2, ncol = 5)
-  p3
-  annotate_figure(p3, left = text_grob(myVar, rot = 90),
-                  bottom = text_grob("Feature Value"))
-  ggsave(paste0("figures/pdp/", myVar, "_pdp.png"), unit = "in", width = 10, height = 4, dpi = 300, device = "png")
-}
-
-  
-# might need to standardize the y axis limits at some point but this is good enough for now
 ```
 
 ### Relative abundance of ECs by subclasses and subsubclasses
@@ -401,7 +234,7 @@ ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   theme(legend.position = "none") +
   labs(x = "SHMI Bin") +
   scale_fill_discrete(name = "Subclass")
-ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 # make SEMWISE bar chart
 ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
@@ -410,7 +243,7 @@ ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
   theme(legend.position = "none") +
   labs(x = "SEMWISE Bin") +
   scale_fill_discrete(name = "Subclass")
-ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SEMWISE_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 # graph each subclass on its own
 # in p_df, create a column with just subclass and filter by that
@@ -481,7 +314,7 @@ p_SHMI_all <- annotate_figure(p_SHMI_all,
                               bottom = text_grob("SHMI Bin"),
                               left = text_grob("Abundance", rot = 90))
 p_SHMI_all
-ggsave("figures/EC_abund_SHMI_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SHMI_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
 
 # SEMWISE bar charts for all levels, combine and save
 p1 <- ggplot(p_df_1, aes(x = SH_bin, y = Abundance, fill = Family)) +
@@ -532,7 +365,7 @@ p_SEMWISE_all <- annotate_figure(p_SEMWISE_all,
                               bottom = text_grob("SEMWISE Bin"),
                               left = text_grob("Abundance", rot = 90))
 p_SEMWISE_all
-ggsave("figures/EC_abund_SEMWISE_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SEMWISE_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
 
 # subsubclass level
 # collapse EC list to subclasses
@@ -588,13 +421,13 @@ ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Genus)) +
   theme(legend.position = "none") +
   labs(x = "SEMWISE Bin") +
   scale_fill_discrete(name = "Sub-subclass")
-ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SEMWISE_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 ```
 
 ### Graph relative abundance of modules
 ```{r}
 # need to bring in module data, merge with relabund data
-# also need to decide which correlation coefficient to use. 0.7?
+# use correlatoin coefficient of 0.8
 ```
 
 ### PCOAs using tsne
