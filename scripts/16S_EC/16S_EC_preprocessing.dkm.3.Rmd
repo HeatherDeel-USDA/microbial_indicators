@@ -1399,7 +1399,7 @@ ggsave(paste0("../../dan_out_2/", "All_", myData, "_PCoA.png"), device='png', dp
 ```
 
 
-
+# network
 ```{r}
 library(microeco)
 library(meconetcomp)
@@ -1437,13 +1437,16 @@ t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman",
                         taxa_level='order', filter_thres = 0)
 
 
-t1$cal_network(COR_p_thres = 0.01, COR_cut=0.9, add_taxa_name='order', 
+t1$cal_network(COR_p_thres = 0.01, COR_cut=0.8, add_taxa_name='order', 
                delete_unlinked_nodes=FALSE)
 t1$cal_module(method ='cluster_fast_greedy')
-t1$cal_eigen()
-t1$get_node_table(node_roles=FALSE) 
+t1$cal_network_attr()
+t1$get_node_table(node_roles=TRUE) 
 t1$get_edge_table()
-write.csv(t1$res_node_table, 'res_node_table_0.9.csv')
+t1$get_adjacency_matrix()
+t1$cal_eigen()
+
+#write.csv(t1$res_node_table, 'res_node_table_0.8.csv')
 
 colors <- rep(paletteer::paletteer_d("ggsci::default_igv", 51),6)
 network <- t1$res_network
@@ -1469,24 +1472,12 @@ ggsave(paste0("../../dan_out_2/", "All_", myData, "_network_0.9.png"), device='p
 # p <- t2$plot_cor()
 
 #random forest with modules
-meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn','zn','clay')]
+meta <- ml_EC_16S[,c('SOM','ace','resp','activeC','ph', 'p', 'k','mg','fe','mn','zn','clay', 'DNA', 'ClimateZ')]
 row.names(meta) <- ml_EC_16S$SampleID
 
-#t2 <- t1$trans_comm(use_col="module", abundance=TRUE)
-train <- cbind(meta[,'ace'], t1$res_eigen)
-names(train)[1] <- 'ace'
+df <- cbind(meta, t1$res_eigen)
+#names(train)[1] <- 'ace'
 
-my_cforest_control <- cforest_control(teststat = "quad",
-          testtype = "Univ", mincriterion = 0, ntree = 500,
-          mtry = ceiling(37/3),
-          replace = FALSE)
-
-cf.train <- cforest(ace ~ ., data = train,
-                    controls = my_cforest_control)
-
-imp <- permimp::permimp(cf.train, nperm=1, OOB=TRUE, scaled=FALSE,
-                        conditional=FALSE, threshold=0.2, asParty=FALSE,
-                        thresholdDiagnostics = FALSE, progressBar = TRUE)
 
 
 ```
