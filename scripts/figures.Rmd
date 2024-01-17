@@ -64,7 +64,7 @@ p1
 
 ### Feature importance distributions
 ```{r}
-# using results from a correlation coefficient of 0.8
+# coloring by network modules with a correlation coefficient of 0.8
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
   filter(Missing != 'x')
@@ -124,7 +124,7 @@ for (myVar in myVars) {
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
 }
 
 # models with GIBBs enzymes
@@ -175,7 +175,7 @@ for (myVar in myVars) {
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
     labs(x="", y="Variable Importance")
   p
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
 }
 ```
 
@@ -227,8 +227,8 @@ TAX <- tax_table(EC_desc)
 p_subclass <- phyloseq(OTU, TAX, SAM)
 
 # make SHMI bar chart
-p_df <- psmelt(p_subclass)
-ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p_df_subclass <- psmelt(p_subclass)
+ggplot(p_df_subclass, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -237,7 +237,7 @@ ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
 #ggsave("figures/EC_abund_SHMI_subclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 # make SEMWISE bar chart
-ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
+ggplot(p_df_subclass, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -247,8 +247,8 @@ ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Family)) +
 
 # graph each subclass on its own
 # in p_df, create a column with just subclass and filter by that
-p_df$subclass = substr(p_df$OTU, start = 4, stop = 4)
-unique(p_df$subclass)
+p_df_subclass$subclass = substr(p_df_subclass$OTU, start = 4, stop = 4)
+unique(p_df_subclass$subclass)
 
 # create df for each subclass
 # 1 = oxidoreductases
@@ -258,50 +258,50 @@ unique(p_df$subclass)
 # 5 = isomerases
 # 6 = ligases
 
-p_df_1 <- subset(p_df, subclass == "1")
-p_df_2 <- subset(p_df, subclass == "2")
-p_df_3 <- subset(p_df, subclass == "3")
-p_df_4 <- subset(p_df, subclass == "4")
-p_df_5 <- subset(p_df, subclass == "5")
-p_df_6 <- subset(p_df, subclass == "6")
+p_df_subclass_1 <- subset(p_df_subclass, subclass == "1")
+p_df_subclass_2 <- subset(p_df_subclass, subclass == "2")
+p_df_subclass_3 <- subset(p_df_subclass, subclass == "3")
+p_df_subclass_4 <- subset(p_df_subclass, subclass == "4")
+p_df_subclass_5 <- subset(p_df_subclass, subclass == "5")
+p_df_subclass_6 <- subset(p_df_subclass, subclass == "6")
 
 # SHMI bar charts for all levels, combine and save
-p1 <- ggplot(p_df_1, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p1 <- ggplot(p_df_subclass_1, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Oxidoreductases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p2 <- ggplot(p_df_2, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p2 <- ggplot(p_df_subclass_2, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Transferases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p3 <- ggplot(p_df_3, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p3 <- ggplot(p_df_subclass_3, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Hydrolases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p4 <- ggplot(p_df_4, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p4 <- ggplot(p_df_subclass_4, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Lyases") +
   scale_fill_discrete(name = "Subclass") + 
   ylim(0,250)
-p5 <- ggplot(p_df_5, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p5 <- ggplot(p_df_subclass_5, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Isomerases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p6 <- ggplot(p_df_6, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
+p6 <- ggplot(p_df_subclass_6, aes(x = SHMI2_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -317,42 +317,42 @@ p_SHMI_all
 #ggsave("figures/EC_abund_SHMI_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
 
 # SEMWISE bar charts for all levels, combine and save
-p1 <- ggplot(p_df_1, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p1 <- ggplot(p_df_subclass_1, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Oxidoreductases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p2 <- ggplot(p_df_2, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p2 <- ggplot(p_df_subclass_2, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Transferases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p3 <- ggplot(p_df_3, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p3 <- ggplot(p_df_subclass_3, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Hydrolases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p4 <- ggplot(p_df_4, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p4 <- ggplot(p_df_subclass_4, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Lyases") +
   scale_fill_discrete(name = "Subclass") + 
   ylim(0,250)
-p5 <- ggplot(p_df_5, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p5 <- ggplot(p_df_subclass_5, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "", y = "", title = "Isomerases") +
   scale_fill_discrete(name = "Subclass") +
   ylim(0,250)
-p6 <- ggplot(p_df_6, aes(x = SH_bin, y = Abundance, fill = Family)) +
+p6 <- ggplot(p_df_subclass_6, aes(x = SH_bin, y = Abundance, fill = Family)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -368,7 +368,7 @@ p_SEMWISE_all
 #ggsave("figures/EC_abund_SEMWISE_subclass_split.pdf", unit = "in", width = 12, height = 8, dpi = 300, device = "pdf")
 
 # subsubclass level
-# collapse EC list to subclasses
+# collapse EC list to subsubclasses
 pattern <- "EC:(.*)\\.(.*)\\.(.*)\\."
 ECs2_t$ECs_subsubclass <- regmatches(ECs2_t$ECs, regexec(pattern, ECs2_t$ECs))
 ECs2_t$ECs_subsubclass2 <- sapply(ECs2_t$ECs_subsubclass, "[[", 1)
@@ -405,17 +405,17 @@ TAX <- tax_table(EC_desc)
 p_subsubclass <- phyloseq(OTU, TAX, SAM)
 
 # make SHMI bar chart
-p_df <- psmelt(p_subsubclass)
-ggplot(p_df, aes(x = SHMI2_bin, y = Abundance, fill = Genus)) +
+p_df_subsubclass <- psmelt(p_subsubclass)
+ggplot(p_df_subsubclass, aes(x = SHMI2_bin, y = Abundance, fill = Genus)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
   labs(x = "SHMI Bin") +
   scale_fill_discrete(name = "Sub-subclass")
-ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
+#ggsave("figures/EC_abund_SHMI_subsubclass.pdf", unit = "in", width = 6, height = 4, dpi = 300, device = "pdf")
 
 # make SEMWISE bar chart
-ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Genus)) +
+ggplot(p_df_subsubclass, aes(x = SH_bin, y = Abundance, fill = Genus)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_classic() +
   theme(legend.position = "none") +
@@ -427,7 +427,22 @@ ggplot(p_df, aes(x = SH_bin, y = Abundance, fill = Genus)) +
 ### Graph relative abundance of modules
 ```{r}
 # need to bring in module data, merge with relabund data
-# use correlatoin coefficient of 0.8
+# use correlation coefficient of 0.8
+# need to decide with modules to graph for each indicator - they will be different for each indicator
+# Want to graph the same modules between all enzymes and gibbs
+
+# start with ECs2_t, filter out extra columns
+ECs2_t2 <- ECs2_t[,1:537]
+
+# make column names the sample names
+sample_names <- ECs$SampleID
+colnames(ECs2_t2) <- sample_names
+
+# attach modules to ECs
+
+
+# formatting for input into a phyloseq object (if needed, decide what formatting to do. Line graph or bar chart?)
+
 ```
 
 ### PCOAs using tsne
