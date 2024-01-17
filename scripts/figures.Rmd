@@ -431,17 +431,37 @@ ggplot(p_df_subsubclass, aes(x = SH_bin, y = Abundance, fill = Genus)) +
 # need to decide with modules to graph for each indicator - they will be different for each indicator
 # Want to graph the same modules between all enzymes and gibbs
 
+# think on how to approach this - need each OTU to be associated with a module. Can't do that in the sample file
+# think I need to not use phyloseq, and create one file for each module where all of the ECs within that module are summed up and I look at the relative abundance of that
+# and also need to bring in SHMI and SEMWISE within each module file
+
 # start with ECs2_t, filter out extra columns
 ECs2_t2 <- ECs2_t[,1:537]
+ECs2_t2 <- column_to_rownames(ECs2_t2, var = "ECs")
 
 # make column names the sample names
 sample_names <- ECs$SampleID
 colnames(ECs2_t2) <- sample_names
 
-# attach modules to ECs
+# make ECs a column for joining
+ECs2_t2 <- rownames_to_column(ECs2_t2, var = "Predictor")
+
+# join modules and ECs
+ECs_mod <- ECs2_t2 %>% 
+  left_join(modules, by = join_by(Predictor))
 
 
+
+# notes:
 # formatting for input into a phyloseq object (if needed, decide what formatting to do. Line graph or bar chart?)
+# maybe just do a line graph for modules of interest? can have a faceted plot for each indicator 
+# I do need a phyloseq object so I can look at modules across soil health
+# Could perhaps do a loop to generate a graph for each module, but that's way too many
+# I think I need to create a manual list of the modules to graph for each indicator
+
+
+
+
 
 ```
 
