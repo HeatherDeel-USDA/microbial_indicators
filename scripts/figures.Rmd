@@ -594,6 +594,8 @@ ace_EC_mods <- full_join(ace_EC_mods, p_mod72_persamp)
 p_mod_ace <- ggplot(ace_EC_mods, aes(x = SHMI2_bin, y = Abundance, color = module)) +
   geom_boxplot()
 p_mod_ace
+
+################ going to move away from SHMI - want to run networks with modules in which cooccurring enzymes are trending in the same direction, will then run RF models with those modules to get rid of the collinearity and then we can interpret the modules (what enzymes are in the important modules? are there any in our gibbs list? are there any that are "important" simply because they cooccur with something else in the soil, and that something else is what's actually being driven by management?)
 ```
 
 ### PCOAs using tsne
