@@ -432,11 +432,11 @@ EC_full <- column_to_rownames(EC_full, var = "Predictor")
 EC_full <- as.matrix(EC_full)
 TAX <- tax_table(EC_full)
 
-############### start here first ###################
 # create sample file with just sample name, SHMI, SEMWISE, for merging with mod files later
-# get row names back to a column
-
-EC_sam_SHMI_SEM <- EC_sam[,c()]
+EC_sam_SHMI_SEM <- EC_sam
+EC_sam_SHMI_SEM <- rownames_to_column(EC_sam_SHMI_SEM, var = "Sample")
+EC_sam_SHMI_SEM <- EC_sam_SHMI_SEM %>% 
+  select(Sample, SH_rating, SHMI2_rating)
 
 # start with ECs2_t, filter out extra columns
 ECs2_t2 <- ECs2_t[,1:537]
@@ -473,6 +473,7 @@ p_mod1_persamp <- p_mod1_melt %>%
   group_by(Sample) %>% 
   summarize(Abundance = sum(Abundance))
 p_mod1_persamp$module <- "1"
+p_mod1_persamp <- left_join(p_mod1_persamp, EC_sam_SHMI_SEM, by = "Sample")
 
 # create module 126 file, phyloseq, and df
 ECs_mod126 <- ECs_mod %>% 
@@ -481,29 +482,35 @@ ECs_mod126 <- ECs_mod126[,1:536] # get rid of module col from otu table
 OTU126 = otu_table(ECs_mod126, taxa_are_rows = TRUE)
 p_mod126 <- phyloseq(OTU126, TAX, SAM)
 p_mod126_melt <- psmelt(p_mod126)
-p_mod126_melt$module <- "126"
-################ after reduced sample file created, merge with mod files here
+p_mod126_persamp <- p_mod126_melt %>% 
+  group_by(Sample) %>% 
+  summarize(Abundance = sum(Abundance))
+p_mod126_persamp$module <- "126"
+p_mod126_persamp <- left_join(p_mod126_persamp, EC_sam_SHMI_SEM, by = "Sample")
 
-# merge module 1 and module 126 dfs
-ace_EC_mods <- full_join(p_mod1_melt, p_mod126_melt)
+# create module 206 file, phyloseq, and df
+ECs_mod206 <- ECs_mod %>% 
+  filter(module == 206)
+ECs_mod206 <- ECs_mod206[,1:536] # get rid of module col from otu table
+OTU206 = otu_table(ECs_mod206, taxa_are_rows = TRUE)
+p_mod206 <- phyloseq(OTU206, TAX, SAM)
+p_mod206_melt <- psmelt(p_mod206)
+p_mod206_persamp <- p_mod206_melt %>% 
+  group_by(Sample) %>% 
+  summarize(Abundance = sum(Abundance))
+p_mod206_persamp$module <- "206"
+p_mod206_persamp <- left_join(p_mod206_persamp, EC_sam_SHMI_SEM, by = "Sample")
+
+# merge all module dfs
+ace_EC_mods <- full_join(p_mod1_persamp, p_mod126_persamp)
+ace_EC_mods <- full_join(ace_EC_mods, p_mod206_persamp)
 
 # line graph
 p_mod_ace <- ggplot(ace_EC_mods, aes(x = SHMI2_rating, y = Abundance, color = module)) +
   geom_line()
 p_mod_ace
 
-# need to group by sample in psmelt objects
-
-
-# ACE
-# filter down to just one ace module
-# then psmelt
-# then add column with module name
-# do for each module, then merge all modules I want to graph at the end
-# then do a single line graph with lines colored by module
-# go back and simplify code/comments so it's easier to do this 1000 times
-
-
+# once this works, add the rest of the ACE modules I want to add
 
 ```
 
