@@ -463,17 +463,24 @@ ECs_mod$module <- gsub("M","", ECs_mod$module)
 ECs_mod$module <- as.numeric(ECs_mod$module)
 
 # create module 1 file, phyloseq, and df
-ECs_mod1 <- ECs_mod %>% 
-  filter(module == 1)
-ECs_mod1 <- ECs_mod1[,1:536] # get rid of module col from otu table
-OTU1 = otu_table(ECs_mod1, taxa_are_rows = TRUE)
-p_mod1 <- phyloseq(OTU1, TAX, SAM)
-p_mod1_melt <- psmelt(p_mod1)
-p_mod1_persamp <- p_mod1_melt %>% 
+ECs_mod8 <- ECs_mod %>% 
+  filter(module == 8)
+ECs_mod8 <- ECs_mod8[,1:536] # get rid of module col from otu table
+OTU8 = otu_table(ECs_mod8, taxa_are_rows = TRUE)
+p_mod8 <- phyloseq(OTU8, TAX, SAM)
+p_mod8_melt <- psmelt(p_mod8)
+p_mod8_persamp <- p_mod8_melt %>% 
   group_by(Sample) %>% 
   summarize(Abundance = sum(Abundance))
-p_mod1_persamp$module <- "1"
-p_mod1_persamp <- left_join(p_mod1_persamp, EC_sam_SHMI_SEM, by = "Sample")
+p_mod8_persamp$module <- "8"
+p_mod8_persamp <- left_join(p_mod8_persamp, EC_sam_SHMI_SEM, by = "Sample")
+
+##### quick graph of ECs_mod1, want to see if they're monotonic
+# maybe do a correlation heatmap of everything to verify
+library(ggcorrplot)
+p.mat <- cor_pmat(ECs_mod8) 
+ggcorrplot(ECs_mod8)
+ggsave("figures/corr_heatmap_test_mod8.pdf", unit = "in", width = 30, height = 30, dpi = 300, device = "pdf")
 
 # create module 126 file, phyloseq, and df
 ECs_mod126 <- ECs_mod %>% 

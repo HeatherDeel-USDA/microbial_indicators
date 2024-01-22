@@ -924,8 +924,8 @@ p1 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + the
   guides(size="none",
          fill = guide_legend(override.aes = list(size = 4, shape=21))) +
   labs(fill="ClimateZ", shape="Land Use", x="tSNE 1", y="tSNE 2")
-p
-ggsave(paste0("../../dan_out_2/", "All_GIBBs_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
+p1
+#ggsave(paste0("../../dan_out_2/", "All_GIBBs_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
 
 
 # ord <- dbrda(vegdist(data, 'bray') ~ 1)
@@ -1433,6 +1433,9 @@ EC.meco <- phyloseq2meco(P.filt)
 
 t1 <- clone(EC.meco)
 
+### start here - want the cooccurrence network to only include coocurrences of the same upward or downward trend
+# spearman is supposed to only calculate correlations between monotonic relationships, so I think this is okay, but trying to verify
+# e.g., do all enzymes in module 1 have a monotonic relationship to each other?
 t1 <- trans_network$new(dataset=EC.meco, cor_method="spearman", 
                         taxa_level='order', filter_thres = 0)
 t1$cal_network(COR_p_thres = 0.01, COR_cut=0.8, add_taxa_name='order', 
