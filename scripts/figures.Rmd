@@ -32,18 +32,18 @@ p1 <- ggplot(ml_stats, aes(x=myVar, y=r2_val, fill = RA_total_GIBBs)) +
   theme_bw() + 
   ylim(0,1) +
   theme(axis.text.x=element_text(angle=45, hjust=1)) +
-  scale_fill_discrete(name = "Data Type", labels = c("EC RA", "EC Total", "GIBBs RA",
+  scale_fill_discrete(name = "Data Type", labels = c("EC RA", "EC Total", "EC Modules", "GIBBs RA",
                                                      "GIBBs Total", "Tax RA", "Tax Total")) +
   scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P",
                               "pH","Respiration","SOM","Water Capacity","Zn"))
 p1
 
-#ggsave("figures/ml_ec_r2_all.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
-#ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
+ggsave("figures/ml_ec_r2_all.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+ggsave("figures/ml_ec_r2_all.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Boxplot of R^2 values for each indicator
-# just relative abundance
+# individual RA and module graphs
 ```{r}
 ml_stats_RA <- filter(ml_stats, RA_total_GIBBs == "RA")
 
@@ -60,6 +60,22 @@ p1
 
 #ggsave("figures/ml_ec_r2_RA.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
 #ggsave("figures/ml_ec_r2_RA.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
+
+ml_stats_modules <- filter(ml_stats, RA_total_GIBBs == "RA_modules")
+
+p1 <- ggplot(ml_stats_modules, aes(x=myVar, y=r2_val)) + 
+  geom_boxplot(fill = "#00BF7D") + 
+  xlab("Indicator") +
+  ylab(bquote(R^2~"Values")) +
+  theme_bw() + 
+  ylim(0,1) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P",
+                              "pH","Respiration","SOM","Water Capacity","Zn"))
+p1
+
+#ggsave("figures/ml_ec_r2_RA_modules.pdf", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
+#ggsave("figures/ml_ec_r2_RA_modules.tiff", unit = "in", width = 10, height = 5, dpi = 300, device = "tiff")
 ```
 
 ### Feature importance distributions
@@ -176,6 +192,42 @@ for (myVar in myVars) {
     labs(x="", y="Variable Importance")
   p
     #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
+}
+```
+
+### Feature importance distributions of models run using 0.8 modules
+```{r}
+myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+
+for (myVar in myVars) {
+    filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_modules/"), pattern = paste0(myVar,"_modules_varimp*"), full.names = TRUE)
+  varimps <- lapply(filenames, read.csv, header = FALSE)
+  varimps_full <- varimps %>% 
+    reduce(full_join)
+
+  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+
+  # filter out poor indicators
+  temp <- varimps_full %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(20, Var) 
+  
+  gDF <- varimps_full %>%
+    filter(Predictor %in% temp$Predictor) %>% 
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+  
+  colors <- paletteer_d(`"ggsci::category20_d3"`)
+  
+  means <- aggregate(VIP ~ Predictor, gDF, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
+  p <- ggplot(gDF, aes(x=Predictor, y=VIP)) +
+    geom_boxplot() + 
+    theme_bw() +
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
+    labs(x="", y="Module Importance")
+  p
+    ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
 }
 ```
 
