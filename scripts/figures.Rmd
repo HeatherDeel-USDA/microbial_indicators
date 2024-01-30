@@ -21,9 +21,11 @@ library(vegan)
 library(cowplot)
 library(grid)
 library(gridExtra)
+library(pairwiseAdonis)
 ```
 
 ### Comparison R^2 of different data types
+#### if including figure with all data types in supplement, add code for that back (without significances because it's too busy)
 ```{r}
 # tax data was pulled from dan_out/All_stats_randomForest and added to All_stats.csv
 ml_stats <- read.csv("machine_learning/16S_EC/All_stats.csv")
@@ -71,18 +73,31 @@ data <- P %>%
   select(gibbs$EC)
 
 meta <- P
-
-tsne_out <- Rtsne::Rtsne(data, perplexity=15, max_iter=1000)
-plot(tsne_out$Y)
+meta <- meta[,c(1:2,2439:2587)]
 
 p1 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + theme_bw() +
   geom_point(aes(fill=meta$ClimateZ, shape=meta$Current_Land_Use), size=4) +
-  scale_shape_manual(values=c(21,22,23,24)) +
+  scale_shape_manual(values=c(21,22,23,24), labels = c("Annual Cropland","Perennial Cropland","Rangeland")) +
   guides(size="none",
          fill = guide_legend(override.aes = list(size = 4, shape=21))) +
-  labs(fill="ClimateZ", shape="Land Use", x="tSNE 1", y="tSNE 2")
+  labs(fill="Climate Zone", shape="Land Use", x="tSNE 1", y="tSNE 2")
 p1
 #ggsave(paste0("figures/All_GIBBs_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
+
+# permanova between land use and climate zone
+permanova_land <- pairwise.adonis2(data ~ Current_Land_Use,
+                                data = meta,
+                                permutations = 9999)
+# p-vals for all comparisons less than 0.05
+
+permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
+                                data = meta,
+                                permutations = 9999)
+
+
+
+
+
 ```
 
 ### Feature importance distributions of GIBBs models
@@ -99,7 +114,27 @@ for (myVar in myVars) {
   varimps <- lapply(filenames, read.csv, header = FALSE)
   varimps_full <- varimps %>% 
     reduce(full_join)
-
+  
+  # changing myVar format for cleaner plot titles
+  if (myVar == 'resp'){
+    myVar <- "Resp"
+  }
+  if (myVar == 'agg_stab'){
+    myVar <- "AggStab"
+  }
+  if (myVar == 'water_cap'){
+    myVar <- "WaterCap"
+  }
+  if (myVar == 'mg'){
+    myVar <- "Mg"
+  }
+  if (myVar == 'mn'){
+    myVar <- "Mn"
+  }
+  if (myVar == 'zn'){
+    myVar <- "Zn"
+  }
+  
   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
   varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
   varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
@@ -134,7 +169,7 @@ for (myVar in myVars) {
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
-          legend.position = "none") +
+          legend.position = "none", plot.title = element_text(size = 12)) +
     labs(x="", y="", title = myVar)
   p
   assign(paste0(myVar,"_gibbs"),p)
@@ -150,103 +185,101 @@ p_legend2 <- get_legend(p_legend)
 p_legend3 <- as_ggplot(p_legend2)
 p_legend3
 
-p_gibbs_merged <- ggarrange(agg_stab_gibbs, mg_gibbs, mn_gibbs, resp_gibbs,
-                            SOM_gibbs, water_cap_gibbs, zn_gibbs, p_legend3,
+p_gibbs_merged <- ggarrange(AggStab_gibbs, Mg_gibbs, Mn_gibbs, Resp_gibbs,
+                            SOM_gibbs, WaterCap_gibbs, Zn_gibbs, p_legend3,
                             nrow = 2, ncol = 4)
 p_gibbs_merged
 
-annotate_figure(p_gibbs_merged, left = textGrob("Variable Importance", rot = 90, vjust = 1),
-                bottom = textGrob("Model Predictors"))
+annotate_figure(p_gibbs_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Model Predictors", size = 14))
 
-# to do: 
-# fix plot titles
-# combine y axis labels
-```
-
-### Feature importance distributions of non-GIBBs models
-# coloring by network modules with a correlation coefficient of 0.8
-# label GIBBs for each indicator somehow - or decide if I should instead graph the module models for these indicators (next chunk)
-```{r}
-gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
-gibbs <- gibbs %>%
-  filter(Missing != 'x')
-gibbs$EC <- gsub(":","_", gibbs$EC)
-gibbs$EC <- gsub("\\.","_", gibbs$EC)
-
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
-
-modules <- read.csv("scripts/16S_EC/res_node_table_0.8.csv")
-colnames(modules)[1] <- "Predictor"
-
-# models with all enzymes
-for (myVar in myVars) {
-    filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr/"), pattern = paste0(myVar,"_RA_corr_varimp*"), full.names = TRUE)
-  varimps <- lapply(filenames, read.csv, header = FALSE)
-  varimps_full <- varimps %>% 
-    reduce(full_join)
-
-  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
-  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
-
-  gDF <- varimps_full %>%
-    left_join(gibbs, by=c("Predictor"="EC")) %>% 
-    left_join(modules, by = join_by(Predictor)) %>% 
-    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
-  
-  gDF$module <- as.factor(gDF$module)
-
-  # filter out poor indicators
-  temp <- gDF %>% group_by(Predictor) %>%
-    summarise(Var = median(VIP)) %>%
-    top_n(20, Var) 
-  
-  gDF <- gDF %>%
-    filter(Predictor %in% temp$Predictor)
-  
-  colors <- paletteer_d(`"ggsci::category20_d3"`)
-  # colors <- c("Biocontrol" = "#1F77B4FF", 
-  #             "C cycling" = "#FF7F0EFF",
-  #             "C/N cycling" = "#2CA02CFF",
-  #             "N cycling" = "#D62728FF", 
-  #             "P cycling" = "#9467BDFF", 
-  #             "S cycling" = "#8C564BFF",
-  #             "Stess" = "#E377C2FF",
-  #             "Siderophore" = "#7F7F7FFF",
-  #             "Other" = "white")
-  
-  means <- aggregate(VIP ~ Predictor, gDF, median)
-  means$Category <- 'Other'
-  means$VIP <- round(means$VIP, 3)
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=module)) +
-    scale_fill_manual(values=colors, na.value="white") +
-    geom_boxplot() + 
-    geom_point(aes(fill=module), shape=21) + 
-    theme_bw() +
-    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
-    labs(x="", y="Variable Importance")
-  p
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp_mod0.8.png"), device='png', dpi=600, height=6, width=8)
-}
+ggsave("figures/gibbs_varimps.png", device='png', dpi=600, height=8, width=12)
 ```
 
 ### Feature importance distributions of models run using 0.8 modules
+# Using indicators where models with all enzymes performed better
 ### need to add GIBBs labels to this for each indicator somehow
 ```{r}
-myVars <- c('ace', 'SOM', 'activeC', 'resp', 'agg_stab', 'water_cap', 'ph', 'p', 'k', 'mg', 'fe', 'mn', 'zn')
+# ref code - figure out how to assign ECs to each module and then determine whether there's a GIBBs enzyme in that module
+EC_full <- read_csv("ec_files_expasy/enzyme_R.csv")
+EC_full <- column_to_rownames(EC_full, var = "Predictor")
+EC_full <- as.matrix(EC_full)
+TAX <- tax_table(EC_full)
+
+# create sample file with just sample name, SHMI, SEMWISE, for merging with mod files later
+EC_sam_SHMI_SEM <- EC_sam
+EC_sam_SHMI_SEM <- rownames_to_column(EC_sam_SHMI_SEM, var = "Sample")
+EC_sam_SHMI_SEM <- EC_sam_SHMI_SEM %>% 
+  select(Sample, SH_rating, SHMI2_rating, SHMI2_bin, SH_bin)
+
+# start with ECs2_t, filter out extra columns
+ECs2_t2 <- ECs2_t[,1:537]
+ECs2_t2 <- column_to_rownames(ECs2_t2, var = "ECs")
+
+# make column names the sample names
+sample_names <- ECs$SampleID
+colnames(ECs2_t2) <- sample_names
+
+# make ECs a column for joining
+ECs2_t2 <- rownames_to_column(ECs2_t2, var = "Predictor")
+
+# join modules and ECs
+ECs_mod <- ECs2_t2 %>% 
+  left_join(modules, by = join_by(Predictor))
+
+ECs_mod <- column_to_rownames(ECs_mod, var = "Predictor")
+ECs_mod <- ECs_mod[,c(1:536,543)]
+ECs_mod <- ECs_mod %>% 
+  filter(module != "NA")
+
+# replace the M in module names so I can convert the column to numeric
+ECs_mod$module <- gsub("M","", ECs_mod$module)
+ECs_mod$module <- as.numeric(ECs_mod$module)
+
+
+
+
+
+
+
+
+
+
+
+myVars <- c('ace', 'activeC', 'ph', 'p', 'k','fe')
 
 for (myVar in myVars) {
     filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_modules/"), pattern = paste0(myVar,"_modules_varimp*"), full.names = TRUE)
   varimps <- lapply(filenames, read.csv, header = FALSE)
   varimps_full <- varimps %>% 
     reduce(full_join)
+  
+  # changing myVar format for cleaner plot titles
+  if (myVar == 'ace'){
+    myVar <- "ACE"
+  }
+  if (myVar == 'activeC'){
+    myVar <- "ActiveC"
+  }
+  if (myVar == 'ph'){
+    myVar <- "pH"
+  }
+  if (myVar == 'p'){
+    myVar <- "P"
+  }
+  if (myVar == 'k'){
+    myVar <- "K"
+  }
+  if (myVar == 'fe'){
+    myVar <- "Fe"
+  }
 
   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
 
   # filter out poor indicators
   temp <- varimps_full %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
-    top_n(20, Var) 
+    top_n(10, Var) 
   
   gDF <- varimps_full %>%
     filter(Predictor %in% temp$Predictor) %>% 
@@ -258,12 +291,14 @@ for (myVar in myVars) {
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
   p <- ggplot(gDF, aes(x=Predictor, y=VIP)) +
-    geom_boxplot() + 
+    #scale_fill_manual(values=colors, na.value="white") + # maybe use this to fill GIBBs enzymes?
+    geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
-    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) +
-    labs(x="", y="Module Importance")
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), plot.title = element_text(size = 12)) + # will need to add legend.position = "none" to this line eventually
+    labs(x="", y="", title = myVar)
   p
-    ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
+  assign(paste0(myVar,"_mods"),p)
+    #ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
 }
 ```
 
