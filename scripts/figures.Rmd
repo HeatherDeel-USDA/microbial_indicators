@@ -93,11 +93,6 @@ permanova_land <- pairwise.adonis2(data ~ Current_Land_Use,
 permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
                                 data = meta,
                                 permutations = 9999)
-
-
-
-
-
 ```
 
 ### Feature importance distributions of GIBBs models
@@ -198,53 +193,25 @@ ggsave("figures/gibbs_varimps.png", device='png', dpi=600, height=8, width=12)
 
 ### Feature importance distributions of models run using 0.8 modules
 # Using indicators where models with all enzymes performed better
-### need to add GIBBs labels to this for each indicator somehow
 ```{r}
-# ref code - figure out how to assign ECs to each module and then determine whether there's a GIBBs enzyme in that module
-EC_full <- read_csv("ec_files_expasy/enzyme_R.csv")
-EC_full <- column_to_rownames(EC_full, var = "Predictor")
-EC_full <- as.matrix(EC_full)
-TAX <- tax_table(EC_full)
+# import gibbs
+gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
+gibbs <- gibbs %>%
+  filter(Missing != 'x')
 
-# create sample file with just sample name, SHMI, SEMWISE, for merging with mod files later
-EC_sam_SHMI_SEM <- EC_sam
-EC_sam_SHMI_SEM <- rownames_to_column(EC_sam_SHMI_SEM, var = "Sample")
-EC_sam_SHMI_SEM <- EC_sam_SHMI_SEM %>% 
-  select(Sample, SH_rating, SHMI2_rating, SHMI2_bin, SH_bin)
+# import modules
+modules <- read.csv("scripts/16S_EC/res_node_table_0.8.csv")
+modules <- modules[,2:12]
+colnames(modules)[1] <- "EC"
 
-# start with ECs2_t, filter out extra columns
-ECs2_t2 <- ECs2_t[,1:537]
-ECs2_t2 <- column_to_rownames(ECs2_t2, var = "ECs")
-
-# make column names the sample names
-sample_names <- ECs$SampleID
-colnames(ECs2_t2) <- sample_names
-
-# make ECs a column for joining
-ECs2_t2 <- rownames_to_column(ECs2_t2, var = "Predictor")
-
-# join modules and ECs
-ECs_mod <- ECs2_t2 %>% 
-  left_join(modules, by = join_by(Predictor))
-
-ECs_mod <- column_to_rownames(ECs_mod, var = "Predictor")
-ECs_mod <- ECs_mod[,c(1:536,543)]
-ECs_mod <- ECs_mod %>% 
-  filter(module != "NA")
-
-# replace the M in module names so I can convert the column to numeric
-ECs_mod$module <- gsub("M","", ECs_mod$module)
-ECs_mod$module <- as.numeric(ECs_mod$module)
-
-
-
-
-
-
-
-
-
-
+# assign gibbs ECs modules
+gibbs_mods <- gibbs %>% 
+  left_join(modules, by = "EC") %>% 
+  drop_na(module)
+gibbs_mods$module <- gsub("M","MOD", gibbs_mods$module)
+gibbs_mods$gibbs <- "G"
+gibbs_mods <- gibbs_mods[,c(14,19)]
+colnames(gibbs_mods)[1] <- "Predictor"
 
 myVars <- c('ace', 'activeC', 'ph', 'p', 'k','fe')
 
@@ -275,13 +242,20 @@ for (myVar in myVars) {
   }
 
   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-
+  
+  # left join with gibbs mods
+  varimps_full_gibbs <- varimps_full %>% 
+    left_join(gibbs_mods, by = "Predictor") 
+  
+  varimps_full_gibbs$gibbs <- varimps_full_gibbs$gibbs %>% 
+   replace_na("NG")
+  
   # filter out poor indicators
-  temp <- varimps_full %>% group_by(Predictor) %>%
+  temp <- varimps_full_gibbs %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
     top_n(10, Var) 
   
-  gDF <- varimps_full %>%
+  gDF <- varimps_full_gibbs %>%
     filter(Predictor %in% temp$Predictor) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
   
@@ -290,39 +264,51 @@ for (myVar in myVars) {
   means <- aggregate(VIP ~ Predictor, gDF, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
+  
+  # formatting for gibbs label
+  if (myVar == 'ACE'){
+    gDF$y <- 0.5
+  }
+  
+  if (myVar == 'ActiveC'){
+    gDF$y <- 0.35
+  }
+  
+  if (myVar == 'pH'){
+    gDF$y <- 0.35
+  }
+  
+  if (myVar == 'P'){
+    gDF$y <- 0.35
+  }
+  
+  if (myVar == 'K'){
+    gDF$y <- 0.62
+  }
+  
+  if (myVar == 'Fe'){
+    gDF$y <- 0.52
+  }
+  
   p <- ggplot(gDF, aes(x=Predictor, y=VIP)) +
     #scale_fill_manual(values=colors, na.value="white") + # maybe use this to fill GIBBs enzymes?
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
-    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), plot.title = element_text(size = 12)) + # will need to add legend.position = "none" to this line eventually
-    labs(x="", y="", title = myVar)
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), plot.title = element_text(size = 12)) + 
+    labs(x="", y="", title = myVar) +
+    geom_text(inherit.aes=F, data=gDF, aes(x=Predictor, y=y, label=gibbs), size = 4)
   p
   assign(paste0(myVar,"_mods"),p)
-    #ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
+  #ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
 }
+
+p_mods_merged <- ggarrange(ACE_mods, ActiveC_mods, Fe_mods, K_mods, P_mods, pH_mods,
+                            nrow = 2, ncol = 3)
+p_mods_merged
+
+annotate_figure(p_mods_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Model Predictors", size = 14))
+
+ggsave("figures/mods_varimps.png", device='png', dpi=600, height=8, width=12)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
