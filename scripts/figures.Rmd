@@ -98,6 +98,7 @@ permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
 
 ### Feature importance distributions of GIBBs models
 # includes indicators in which comparisons between all enzymes and GIBBs enzymes were either NS or GIBBs had higher R2 vals
+# separating by positively and negatively correlated features (there ended up being no negatively correlated enzymes)
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
@@ -111,27 +112,6 @@ for (myVar in myVars) {
   varimps_full <- varimps %>% 
     reduce(full_join)
   
-  # # changing myVar format for cleaner plot titles
-  # move this to lower
-  # if (myVar == 'resp'){
-  #   myVar <- "Resp"
-  # }
-  # if (myVar == 'agg_stab'){
-  #   myVar <- "AggStab"
-  # }
-  # if (myVar == 'water_cap'){
-  #   myVar <- "WaterCap"
-  # }
-  # if (myVar == 'mg'){
-  #   myVar <- "Mg"
-  # }
-  # if (myVar == 'mn'){
-  #   myVar <- "Mn"
-  # }
-  # if (myVar == 'zn'){
-  #   myVar <- "Zn"
-  # }
-  
   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
   varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
   varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
@@ -144,30 +124,35 @@ for (myVar in myVars) {
  ml_EC_RA_corr <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
  
  ml_indic <- ml_EC_RA_corr %>% 
-   select(gDF$Predictor, paste0(myVar,".bt")) %>% 
+   select(gDF$Predictor, paste0(myVar)) %>% 
    subset(select=-c(ClimateZ, clay, DNA))
  
  ec.mat <- cor_pmat(ml_indic)
  ec.mat <- ec.mat %>% 
-   subset(select = paste0(myVar,".bt"))
+   subset(select = paste0(myVar))
  ec.mat <- data.frame(ec.mat)
  ec.mat <- rownames_to_column(ec.mat, var = "Predictor")
 
- ec.mat.pos <- filter(ec.mat, paste0(myVar,".bt") > 0)
- ec.mat.neg <- filter(ec.mat, paste0(myVar,".bt") < 0)
+ ec.mat.pos <- filter(ec.mat, paste0(myVar) > 0)
+ ec.mat.neg <- filter(ec.mat, paste0(myVar) < 0)
 
-  # filter out poor indicators (add code for doing this separately for pos and neg correlations)
+  # filter out poor indicators in pos and neg correlations
  gDF.pos <- gDF %>% 
-   filter(Predictor %in% ec.mat.pos$Predictor) # this leaves out clay, climate, DNA
+   filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
+ gDF.neg <- gDF %>% 
+   filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
  
- 
-  temp.pos <- gDF %>% group_by(Predictor) %>%
+  temp.pos <- gDF.pos %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
     top_n(10, Var) 
-  temp.neg
+  temp.neg <- gDF.neg %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(10, Var) 
   
-  gDF <- gDF %>%
-    filter(Predictor %in% temp$Predictor)
+  gDF.pos <- gDF.pos %>%
+    filter(Predictor %in% temp.pos$Predictor)
+  gDF.neg <- gDF.neg %>%
+    filter(Predictor %in% temp.neg$Predictor)
   
   colors <- c("Biocontrol" = "#1F77B4FF",
               "C cycling" = "#FF7F0EFF",
@@ -179,23 +164,56 @@ for (myVar in myVars) {
               "Siderophore" = "#7F7F7FFF",
               "NA" = "white")
   
-  means <- aggregate(VIP ~ Predictor, gDF, median)
+  # changing myVar format for cleaner plot titles
+  if (myVar == 'resp'){
+    myVar <- "Resp"
+  }
+  if (myVar == 'agg_stab'){
+    myVar <- "AggStab"
+  }
+  if (myVar == 'water_cap'){
+    myVar <- "WaterCap"
+  }
+  if (myVar == 'mg'){
+    myVar <- "Mg"
+  }
+  if (myVar == 'mn'){
+    myVar <- "Mn"
+  }
+  if (myVar == 'zn'){
+    myVar <- "Zn"
+  }
+  
+  # positive correlation graph
+  means <- aggregate(VIP ~ Predictor, gDF.pos, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  p.pos <- ggplot(gDF.pos, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
           legend.position = "none", plot.title = element_text(size = 12)) +
     labs(x="", y="", title = myVar)
-  p
-  assign(paste0(myVar,"_gibbs"),p)
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.png"), device='png', dpi=600, height=8, width=8)
+  p.pos
+  assign(paste0(myVar,"_gibbs_pos"),p.pos)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  
+  # negative correlation graph
+  means <- aggregate(VIP ~ Predictor, gDF.neg, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
+  p.neg <- ggplot(gDF.neg, aes(x=Predictor, y=VIP, fill=Category)) +
+    scale_fill_manual(values=colors, na.value="white") +
+    geom_boxplot(alpha = 1, fatten = 1) + 
+    theme_bw() +
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
+          legend.position = "none", plot.title = element_text(size = 12)) +
+    labs(x="", y="", title = myVar)
+  p.neg
+  assign(paste0(myVar,"_gibbs_neg"),p.neg)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
-
-
-
 
 # create legend of all GIBBs colors to add to merged plot
 p_legend <- ggplot(gibbs, aes(x = EC, fill = Category)) +
@@ -206,136 +224,149 @@ p_legend2 <- get_legend(p_legend)
 p_legend3 <- as_ggplot(p_legend2)
 p_legend3
 
-p_gibbs_merged <- ggarrange(AggStab_gibbs, Mg_gibbs, Mn_gibbs, Resp_gibbs,
-                            SOM_gibbs, WaterCap_gibbs, Zn_gibbs, p_legend3,
+# positive correlations graph
+p_gibbs_merged_pos <- ggarrange(AggStab_gibbs_pos, Mg_gibbs_pos, Mn_gibbs_pos, Resp_gibbs_pos,
+                            SOM_gibbs_pos, WaterCap_gibbs_pos, Zn_gibbs_pos, p_legend3,
                             nrow = 2, ncol = 4)
-p_gibbs_merged
+p_gibbs_merged_pos
 
-annotate_figure(p_gibbs_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Model Predictors", size = 14))
+annotate_figure(p_gibbs_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Positively Correlated Model Predictors", size = 14))
 
-#ggsave("figures/gibbs_varimps.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/gibbs_varimps_pos.png", device='png', dpi=600, height=8, width=12)
+
+# negative correlations graph
+p_gibbs_merged_neg <- ggarrange(AggStab_gibbs_neg, Mg_gibbs_neg, Mn_gibbs_neg, Resp_gibbs_neg,
+                            SOM_gibbs_neg, WaterCap_gibbs_neg, Zn_gibbs_neg, p_legend3,
+                            nrow = 2, ncol = 4)
+p_gibbs_merged_neg
+
+annotate_figure(p_gibbs_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Negatively Correlated Model Predictors", size = 14))
+
+ggsave("figures/gibbs_varimps_neg.png", device='png', dpi=600, height=8, width=12)
 ```
 
+### Commenting this out because I think we're ditching the module stuff, idk
 ### Feature importance distributions of models run using 0.8 modules
 # Using indicators where models with all enzymes performed better
 ```{r}
-# import gibbs
-gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
-gibbs <- gibbs %>%
-  filter(Missing != 'x')
-
-# import modules
-modules <- read.csv("scripts/16S_EC/res_node_table_0.8.csv")
-modules <- modules[,2:12]
-colnames(modules)[1] <- "EC"
-
-# assign gibbs ECs modules
-gibbs_mods <- gibbs %>% 
-  left_join(modules, by = "EC") %>% 
-  drop_na(module)
-gibbs_mods$module <- gsub("M","MOD", gibbs_mods$module)
-gibbs_mods$gibbs <- "G"
-gibbs_mods <- gibbs_mods[,c(14,19)]
-colnames(gibbs_mods)[1] <- "Predictor"
-
-myVars <- c('ace', 'activeC', 'ph', 'p', 'k','fe')
-
-for (myVar in myVars) {
-    filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_modules/"), pattern = paste0(myVar,"_modules_varimp*"), full.names = TRUE)
-  varimps <- lapply(filenames, read.csv, header = FALSE)
-  varimps_full <- varimps %>% 
-    reduce(full_join)
-  
-  # changing myVar format for cleaner plot titles
-  if (myVar == 'ace'){
-    myVar <- "ACE"
-  }
-  if (myVar == 'activeC'){
-    myVar <- "ActiveC"
-  }
-  if (myVar == 'ph'){
-    myVar <- "pH"
-  }
-  if (myVar == 'p'){
-    myVar <- "P"
-  }
-  if (myVar == 'k'){
-    myVar <- "K"
-  }
-  if (myVar == 'fe'){
-    myVar <- "Fe"
-  }
-
-  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-  
-  # left join with gibbs mods
-  varimps_full_gibbs <- varimps_full %>% 
-    left_join(gibbs_mods, by = "Predictor") 
-  
-  varimps_full_gibbs$gibbs <- varimps_full_gibbs$gibbs %>% 
-   replace_na("NG")
-  
-  # filter out poor indicators
-  temp <- varimps_full_gibbs %>% group_by(Predictor) %>%
-    summarise(Var = median(VIP)) %>%
-    top_n(10, Var) 
-  
-  gDF <- varimps_full_gibbs %>%
-    filter(Predictor %in% temp$Predictor) %>% 
-    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
-  
-  colors <- paletteer_d(`"ggsci::category20_d3"`)
-  
-  means <- aggregate(VIP ~ Predictor, gDF, median)
-  means$Category <- 'Other'
-  means$VIP <- round(means$VIP, 3)
-  
-  # formatting for gibbs label
-  if (myVar == 'ACE'){
-    gDF$y <- 0.5
-  }
-  
-  if (myVar == 'ActiveC'){
-    gDF$y <- 0.35
-  }
-  
-  if (myVar == 'pH'){
-    gDF$y <- 0.35
-  }
-  
-  if (myVar == 'P'){
-    gDF$y <- 0.35
-  }
-  
-  if (myVar == 'K'){
-    gDF$y <- 0.62
-  }
-  
-  if (myVar == 'Fe'){
-    gDF$y <- 0.52
-  }
-  
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP)) +
-    #scale_fill_manual(values=colors, na.value="white") + # maybe use this to fill GIBBs enzymes?
-    geom_boxplot(alpha = 1, fatten = 1) + 
-    theme_bw() +
-    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), plot.title = element_text(size = 12)) + 
-    labs(x="", y="", title = myVar) +
-    geom_text(inherit.aes=F, data=gDF, aes(x=Predictor, y=y, label=gibbs), size = 4)
-  p
-  assign(paste0(myVar,"_mods"),p)
-  #ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
-}
-
-p_mods_merged <- ggarrange(ACE_mods, ActiveC_mods, Fe_mods, K_mods, P_mods, pH_mods,
-                            nrow = 2, ncol = 3)
-p_mods_merged
-
-annotate_figure(p_mods_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Model Predictors", size = 14))
-
-ggsave("figures/mods_varimps.png", device='png', dpi=600, height=8, width=12)
+# # import gibbs
+# gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
+# gibbs <- gibbs %>%
+#   filter(Missing != 'x')
+# 
+# # import modules
+# modules <- read.csv("scripts/16S_EC/res_node_table_0.8.csv")
+# modules <- modules[,2:12]
+# colnames(modules)[1] <- "EC"
+# 
+# # assign gibbs ECs modules
+# gibbs_mods <- gibbs %>% 
+#   left_join(modules, by = "EC") %>% 
+#   drop_na(module)
+# gibbs_mods$module <- gsub("M","MOD", gibbs_mods$module)
+# gibbs_mods$gibbs <- "G"
+# gibbs_mods <- gibbs_mods[,c(14,19)]
+# colnames(gibbs_mods)[1] <- "Predictor"
+# 
+# myVars <- c('ace', 'activeC', 'ph', 'p', 'k','fe')
+# 
+# for (myVar in myVars) {
+#     filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_modules/"), pattern = paste0(myVar,"_modules_varimp*"), full.names = TRUE)
+#   varimps <- lapply(filenames, read.csv, header = FALSE)
+#   varimps_full <- varimps %>% 
+#     reduce(full_join)
+#   
+#   # changing myVar format for cleaner plot titles
+#   if (myVar == 'ace'){
+#     myVar <- "ACE"
+#   }
+#   if (myVar == 'activeC'){
+#     myVar <- "ActiveC"
+#   }
+#   if (myVar == 'ph'){
+#     myVar <- "pH"
+#   }
+#   if (myVar == 'p'){
+#     myVar <- "P"
+#   }
+#   if (myVar == 'k'){
+#     myVar <- "K"
+#   }
+#   if (myVar == 'fe'){
+#     myVar <- "Fe"
+#   }
+# 
+#   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+#   
+#   # left join with gibbs mods
+#   varimps_full_gibbs <- varimps_full %>% 
+#     left_join(gibbs_mods, by = "Predictor") 
+#   
+#   varimps_full_gibbs$gibbs <- varimps_full_gibbs$gibbs %>% 
+#    replace_na("NG")
+#   
+#   # filter out poor indicators
+#   temp <- varimps_full_gibbs %>% group_by(Predictor) %>%
+#     summarise(Var = median(VIP)) %>%
+#     top_n(10, Var) 
+#   
+#   gDF <- varimps_full_gibbs %>%
+#     filter(Predictor %in% temp$Predictor) %>% 
+#     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+#   
+#   colors <- paletteer_d(`"ggsci::category20_d3"`)
+#   
+#   means <- aggregate(VIP ~ Predictor, gDF, median)
+#   means$Category <- 'Other'
+#   means$VIP <- round(means$VIP, 3)
+#   
+#   # formatting for gibbs label
+#   if (myVar == 'ACE'){
+#     gDF$y <- 0.5
+#   }
+#   
+#   if (myVar == 'ActiveC'){
+#     gDF$y <- 0.35
+#   }
+#   
+#   if (myVar == 'pH'){
+#     gDF$y <- 0.35
+#   }
+#   
+#   if (myVar == 'P'){
+#     gDF$y <- 0.35
+#   }
+#   
+#   if (myVar == 'K'){
+#     gDF$y <- 0.62
+#   }
+#   
+#   if (myVar == 'Fe'){
+#     gDF$y <- 0.52
+#   }
+#   
+#   p <- ggplot(gDF, aes(x=Predictor, y=VIP)) +
+#     #scale_fill_manual(values=colors, na.value="white") + # maybe use this to fill GIBBs enzymes?
+#     geom_boxplot(alpha = 1, fatten = 1) + 
+#     theme_bw() +
+#     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), plot.title = element_text(size = 12)) + 
+#     labs(x="", y="", title = myVar) +
+#     geom_text(inherit.aes=F, data=gDF, aes(x=Predictor, y=y, label=gibbs), size = 4)
+#   p
+#   assign(paste0(myVar,"_mods"),p)
+#   #ggsave(paste0("figures/varimps/", myVar, "_module_varimp.png"), device='png', dpi=600, height=6, width=8)
+# }
+# 
+# p_mods_merged <- ggarrange(ACE_mods, ActiveC_mods, Fe_mods, K_mods, P_mods, pH_mods,
+#                             nrow = 2, ncol = 3)
+# p_mods_merged
+# 
+# annotate_figure(p_mods_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+#                 bottom = text_grob("Model Predictors", size = 14))
+# 
+# ggsave("figures/mods_varimps.png", device='png', dpi=600, height=8, width=12)
 ```
 
 ### Feature importance distributions of indicators with better all enzyme models
@@ -353,6 +384,68 @@ for (myVar in myVars) {
   varimps_full <- varimps %>% 
     reduce(full_join)
   
+  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
+  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
+
+ gDF <- varimps_full %>%
+    left_join(gibbs, by=c("Predictor"="EC")) %>% 
+    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+
+ # calculate positive and negative correlations between enzymes and indicators
+ ml_EC_RA_corr <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+ 
+ ml_indic <- ml_EC_RA_corr %>% 
+   select(gDF$Predictor, paste0(myVar)) %>% 
+   subset(select=-c(ClimateZ, clay, DNA))
+ 
+ ec.mat <- cor_pmat(ml_indic)
+ ec.mat <- ec.mat %>% 
+   subset(select = paste0(myVar))
+ ec.mat <- data.frame(ec.mat)
+ ec.mat <- rownames_to_column(ec.mat, var = "Predictor")
+
+ ec.mat.pos <- filter(ec.mat, paste0(myVar) > 0)
+ ec.mat.neg <- filter(ec.mat, paste0(myVar) < 0)
+
+# filter out poor indicators in pos and neg correlations
+ # putting this in a loop because P does not have ClimateZ in its model
+ if (myVar %in% c('ace', 'activeC', 'k','fe')){
+  gDF.pos <- gDF %>% 
+    filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
+  gDF.neg <- gDF %>% 
+    filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
+ }
+ 
+ if (myVar %in% c('p', 'ph')){
+  gDF.pos <- gDF %>% 
+    filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','DNA')) 
+  gDF.neg <- gDF %>% 
+    filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','DNA')) 
+ }
+ 
+  temp.pos <- gDF.pos %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(10, Var) 
+  temp.neg <- gDF.neg %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(10, Var) 
+  
+  gDF.pos <- gDF.pos %>%
+    filter(Predictor %in% temp.pos$Predictor)
+  gDF.neg <- gDF.neg %>%
+    filter(Predictor %in% temp.neg$Predictor)
+  
+  colors <- c("Biocontrol" = "#1F77B4FF",
+              "C cycling" = "#FF7F0EFF",
+              "C/N cycling" = "#2CA02CFF",
+              "N cycling" = "#D62728FF",
+              "P cycling" = "#9467BDFF",
+              "S cycling" = "#8C564BFF",
+              "Stress" = "#E377C2FF",
+              "Siderophore" = "#7F7F7FFF",
+              "NA" = "white")
+  
   # changing myVar format for cleaner plot titles
   if (myVar == 'ace'){
     myVar <- "ACE"
@@ -373,45 +466,35 @@ for (myVar in myVars) {
     myVar <- "Fe"
   }
   
-  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
-  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
-
- gDF <- varimps_full %>%
-    left_join(gibbs, by=c("Predictor"="EC")) %>% 
-    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
-
-  # filter out poor indicators
-  temp <- gDF %>% group_by(Predictor) %>%
-    summarise(Var = median(VIP)) %>%
-    top_n(10, Var) 
-  
-  gDF <- gDF %>%
-    filter(Predictor %in% temp$Predictor)
-  
-  colors <- c("Biocontrol" = "#1F77B4FF",
-              "C cycling" = "#FF7F0EFF",
-              "C/N cycling" = "#2CA02CFF",
-              "N cycling" = "#D62728FF",
-              "P cycling" = "#9467BDFF",
-              "S cycling" = "#8C564BFF",
-              "Stress" = "#E377C2FF",
-              "Siderophore" = "#7F7F7FFF",
-              "NA" = "white")
-  
-  means <- aggregate(VIP ~ Predictor, gDF, median)
+  # positive correlation graph
+  means <- aggregate(VIP ~ Predictor, gDF.pos, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p <- ggplot(gDF, aes(x=Predictor, y=VIP, fill=Category)) +
+  p.pos <- ggplot(gDF.pos, aes(x=Predictor, y=VIP, fill=Category)) +
     scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
           legend.position = "none", plot.title = element_text(size = 12)) +
     labs(x="", y="", title = myVar)
-  p
-  assign(paste0(myVar,"_vars"),p)
-    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.png"), device='png', dpi=600, height=8, width=8)
+  p.pos
+  assign(paste0(myVar,"_pos"),p.pos)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  
+  # negative correlation graph
+  means <- aggregate(VIP ~ Predictor, gDF.neg, median)
+  means$Category <- 'Other'
+  means$VIP <- round(means$VIP, 3)
+  p.neg <- ggplot(gDF.neg, aes(x=Predictor, y=VIP, fill=Category)) +
+    scale_fill_manual(values=colors, na.value="white") +
+    geom_boxplot(alpha = 1, fatten = 1) + 
+    theme_bw() +
+    theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
+          legend.position = "none", plot.title = element_text(size = 12)) +
+    labs(x="", y="", title = myVar)
+  p.neg
+  assign(paste0(myVar,"_neg"),p.neg)
+    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # create legend of all GIBBs colors to add to merged plot
@@ -423,15 +506,25 @@ p_legend2 <- get_legend(p_legend)
 p_legend3 <- as_ggplot(p_legend2)
 p_legend3
 
-p_merged <- ggarrange(ACE_vars, ActiveC_vars, Fe_vars, K_vars,
-                            P_vars, pH_vars, p_legend3,
-                            nrow = 2, ncol = 4)
-p_merged
+# positive correlations graph
+p_merged_pos <- ggarrange(ACE_pos, ActiveC_pos, Fe_pos, K_pos, P_pos, pH_pos, 
+                          p_legend3,nrow = 2, ncol = 4)
+p_merged_pos
 
-annotate_figure(p_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Model Predictors", size = 14))
+annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Positively Correlated Model Predictors", size = 14))
 
-ggsave("figures/all_enzyme_varimps.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=8, width=12)
+
+# negative correlations graph
+p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, Fe_neg, K_neg, P_neg, pH_neg, 
+                          p_legend3,nrow = 2, ncol = 4)
+p_merged_neg
+
+annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Negatively Correlated Model Predictors", size = 14))
+
+ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=8, width=12)
 ```
 
 
