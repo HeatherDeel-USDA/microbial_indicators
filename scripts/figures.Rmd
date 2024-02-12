@@ -22,6 +22,7 @@ library(cowplot)
 library(grid)
 library(gridExtra)
 library(pairwiseAdonis)
+library(ggcorrplot)
 ```
 
 ### Comparison R^2 of different data types
@@ -110,25 +111,26 @@ for (myVar in myVars) {
   varimps_full <- varimps %>% 
     reduce(full_join)
   
-  # changing myVar format for cleaner plot titles
-  if (myVar == 'resp'){
-    myVar <- "Resp"
-  }
-  if (myVar == 'agg_stab'){
-    myVar <- "AggStab"
-  }
-  if (myVar == 'water_cap'){
-    myVar <- "WaterCap"
-  }
-  if (myVar == 'mg'){
-    myVar <- "Mg"
-  }
-  if (myVar == 'mn'){
-    myVar <- "Mn"
-  }
-  if (myVar == 'zn'){
-    myVar <- "Zn"
-  }
+  # # changing myVar format for cleaner plot titles
+  # move this to lower
+  # if (myVar == 'resp'){
+  #   myVar <- "Resp"
+  # }
+  # if (myVar == 'agg_stab'){
+  #   myVar <- "AggStab"
+  # }
+  # if (myVar == 'water_cap'){
+  #   myVar <- "WaterCap"
+  # }
+  # if (myVar == 'mg'){
+  #   myVar <- "Mg"
+  # }
+  # if (myVar == 'mn'){
+  #   myVar <- "Mn"
+  # }
+  # if (myVar == 'zn'){
+  #   myVar <- "Zn"
+  # }
   
   names(varimps_full) <- c('Predictor', 'VIP', 'Run')
   varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
@@ -137,11 +139,32 @@ for (myVar in myVars) {
  gDF <- varimps_full %>%
     left_join(gibbs, by=c("Predictor"="EC")) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+ 
+ # calculate positive and negative correlations between enzymes and indicators
+ ml_EC_RA_corr <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+ 
+ ml_indic <- ml_EC_RA_corr %>% 
+   select(gDF$Predictor, paste0(myVar,".bt")) %>% 
+   subset(select=-c(ClimateZ, clay, DNA))
+ 
+ ec.mat <- cor_pmat(ml_indic)
+ ec.mat <- ec.mat %>% 
+   subset(select = paste0(myVar,".bt"))
+ ec.mat <- data.frame(ec.mat)
+ ec.mat <- rownames_to_column(ec.mat, var = "Predictor")
 
-  # filter out poor indicators
-  temp <- gDF %>% group_by(Predictor) %>%
+ ec.mat.pos <- filter(ec.mat, paste0(myVar,".bt") > 0)
+ ec.mat.neg <- filter(ec.mat, paste0(myVar,".bt") < 0)
+
+  # filter out poor indicators (add code for doing this separately for pos and neg correlations)
+ gDF.pos <- gDF %>% 
+   filter(Predictor %in% ec.mat.pos$Predictor) # this leaves out clay, climate, DNA
+ 
+ 
+  temp.pos <- gDF %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
     top_n(10, Var) 
+  temp.neg
   
   gDF <- gDF %>%
     filter(Predictor %in% temp$Predictor)
@@ -171,6 +194,9 @@ for (myVar in myVars) {
     #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.png"), device='png', dpi=600, height=8, width=8)
 }
 
+
+
+
 # create legend of all GIBBs colors to add to merged plot
 p_legend <- ggplot(gibbs, aes(x = EC, fill = Category)) +
   scale_fill_manual(values = colors) +
@@ -188,7 +214,7 @@ p_gibbs_merged
 annotate_figure(p_gibbs_merged, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
                 bottom = text_grob("Model Predictors", size = 14))
 
-ggsave("figures/gibbs_varimps.png", device='png', dpi=600, height=8, width=12)
+#ggsave("figures/gibbs_varimps.png", device='png', dpi=600, height=8, width=12)
 ```
 
 ### Feature importance distributions of models run using 0.8 modules
