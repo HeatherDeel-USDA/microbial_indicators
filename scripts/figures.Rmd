@@ -23,6 +23,7 @@ library(grid)
 library(gridExtra)
 library(pairwiseAdonis)
 library(ggcorrplot)
+library(Hmisc)
 ```
 
 ### Comparison R^2 of different data types
@@ -98,7 +99,7 @@ permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
 
 ### Feature importance distributions of GIBBs models
 # includes indicators in which comparisons between all enzymes and GIBBs enzymes were either NS or GIBBs had higher R2 vals
-# separating by positively and negatively correlated features (there ended up being no negatively correlated enzymes)
+# separating by positively and negatively correlated features
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
@@ -127,20 +128,30 @@ for (myVar in myVars) {
    select(gDF$Predictor, paste0(myVar)) %>% 
    subset(select=-c(ClimateZ, clay, DNA))
  
- ec.mat <- cor_pmat(ml_indic)
- ec.mat <- ec.mat %>% 
+ ml_indic <- as.matrix(ml_indic)
+ ec.mat <- rcorr(ml_indic)
+ ec.r <- ec.mat$r
+ ec.indic <- ec.r %>% 
    subset(select = paste0(myVar))
- ec.mat <- data.frame(ec.mat)
- ec.mat <- rownames_to_column(ec.mat, var = "Predictor")
+ ec.indic <- data.frame(ec.indic)
 
- ec.mat.pos <- filter(ec.mat, paste0(myVar) > 0)
- ec.mat.neg <- filter(ec.mat, paste0(myVar) < 0)
+ # get positive and negative correlation values
+ ec.indic.pos <- ec.indic %>% 
+   filter(ec.indic[,1] > 0)
+ ec.indic.neg <- ec.indic %>% 
+   filter(ec.indic[,1] < 0)
+ ec.indic.pos <- rownames_to_column(ec.indic.pos, var = "Predictor")
+ ec.indic.neg <- rownames_to_column(ec.indic.neg, var = "Predictor")
+ ec.indic.pos <- ec.indic.pos[ec.indic.pos$Predictor != myVar,]
+ ec.indic.neg <- ec.indic.neg[ec.indic.neg$Predictor != myVar,]
 
   # filter out poor indicators in pos and neg correlations
+  # add this if I want to include climate, clay, and DNA:
+  # | Predictor %in% c('clay','ClimateZ','DNA')
  gDF.pos <- gDF %>% 
-   filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
+   filter(Predictor %in% ec.indic.pos$Predictor) 
  gDF.neg <- gDF %>% 
-   filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
+   filter(Predictor %in% ec.indic.neg$Predictor) 
  
   temp.pos <- gDF.pos %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
@@ -197,7 +208,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.pos
   assign(paste0(myVar,"_gibbs_pos"),p.pos)
-    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
   
   # negative correlation graph
   means <- aggregate(VIP ~ Predictor, gDF.neg, median)
@@ -212,7 +223,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.neg
   assign(paste0(myVar,"_gibbs_neg"),p.neg)
-    ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_GIBBs_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # create legend of all GIBBs colors to add to merged plot
