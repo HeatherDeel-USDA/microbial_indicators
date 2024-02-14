@@ -98,14 +98,13 @@ permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
 ```
 
 ### Feature importance distributions of GIBBs models
-# includes indicators in which comparisons between all enzymes and GIBBs enzymes were either NS or GIBBs had higher R2 vals
 # separating by positively and negatively correlated features
 ```{r}
 gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
 gibbs <- gibbs %>%
   filter(Missing != 'x')
 
-myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn')
+myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
 for (myVar in myVars) {
      filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr_GIBBs/"), pattern = paste0(myVar,"_RA_corr_GIBBs_varimp*"), full.names = TRUE)
@@ -194,6 +193,24 @@ for (myVar in myVars) {
   if (myVar == 'zn'){
     myVar <- "Zn"
   }
+  if (myVar == 'ace'){
+    myVar <- "ACE"
+  }
+  if (myVar == 'activeC'){
+    myVar <- "ActiveC"
+  }
+  if (myVar == 'ph'){
+    myVar <- "pH"
+  }
+  if (myVar == 'p'){
+    myVar <- "P"
+  }
+  if (myVar == 'k'){
+    myVar <- "K"
+  }
+  if (myVar == 'fe'){
+    myVar <- "Fe"
+  }
   
   # positive correlation graph
   means <- aggregate(VIP ~ Predictor, gDF.pos, median)
@@ -236,26 +253,32 @@ p_legend3 <- as_ggplot(p_legend2)
 p_legend3
 
 # positive correlations graph
-p_gibbs_merged_pos <- ggarrange(AggStab_gibbs_pos, Mg_gibbs_pos, Mn_gibbs_pos, Resp_gibbs_pos,
-                            SOM_gibbs_pos, WaterCap_gibbs_pos, Zn_gibbs_pos, p_legend3,
-                            nrow = 2, ncol = 4)
+p_gibbs_merged_pos <- ggarrange(ACE_gibbs_pos, ActiveC_gibbs_pos, AggStab_gibbs_pos, 
+                                Fe_gibbs_pos, K_gibbs_pos, Mg_gibbs_pos, Mn_gibbs_pos, 
+                                P_gibbs_pos, pH_gibbs_pos, Resp_gibbs_pos, 
+                                SOM_gibbs_pos, WaterCap_gibbs_pos, Zn_gibbs_pos,
+                                p_legend3, nrow = 2, ncol = 7)
 p_gibbs_merged_pos
 
 annotate_figure(p_gibbs_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Positively Correlated Model Predictors", size = 14))
+                bottom = text_grob("Positively Correlated Model Predictors", size = 14),
+                top = text_grob("GIBBs Enzymes", size = 14))
 
-ggsave("figures/gibbs_varimps_pos.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/gibbs_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
-p_gibbs_merged_neg <- ggarrange(AggStab_gibbs_neg, Mg_gibbs_neg, Mn_gibbs_neg, Resp_gibbs_neg,
-                            SOM_gibbs_neg, WaterCap_gibbs_neg, Zn_gibbs_neg, p_legend3,
-                            nrow = 2, ncol = 4)
+p_gibbs_merged_neg <- ggarrange(ACE_gibbs_neg, ActiveC_gibbs_neg, AggStab_gibbs_neg, 
+                                Fe_gibbs_neg, K_gibbs_neg, Mg_gibbs_neg, Mn_gibbs_neg, 
+                                P_gibbs_neg, pH_gibbs_neg, Resp_gibbs_neg, 
+                                SOM_gibbs_neg, WaterCap_gibbs_neg, Zn_gibbs_neg,
+                                p_legend3, nrow = 2, ncol = 7)
 p_gibbs_merged_neg
 
 annotate_figure(p_gibbs_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Negatively Correlated Model Predictors", size = 14))
+                bottom = text_grob("Negatively Correlated Model Predictors", size = 14),
+                top = text_grob("GIBBs Enzymes", size = 14))
 
-ggsave("figures/gibbs_varimps_neg.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/gibbs_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 ### Commenting this out because I think we're ditching the module stuff, idk
@@ -381,13 +404,9 @@ ggsave("figures/gibbs_varimps_neg.png", device='png', dpi=600, height=8, width=1
 ```
 
 ### Feature importance distributions of indicators with better all enzyme models
-# Not with modules since most were not collinear with GIBBs enzymes
+# separating by positively and negatively correlated enzymes
 ```{r}
-gibbs <- read.csv('picrust2_files/GIBBs.EC.numbers.csv')
-gibbs <- gibbs %>%
-  filter(Missing != 'x')
-
-myVars <- c('ace', 'activeC', 'ph', 'p', 'k','fe')
+myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
 for (myVar in myVars) {
      filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr/"), pattern = paste0(myVar,"_RA_corr_varimp*"), full.names = TRUE)
@@ -406,34 +425,61 @@ for (myVar in myVars) {
  # calculate positive and negative correlations between enzymes and indicators
  ml_EC_RA_corr <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
  
- ml_indic <- ml_EC_RA_corr %>% 
-   select(gDF$Predictor, paste0(myVar)) %>% 
-   subset(select=-c(ClimateZ, clay, DNA))
+ # putting some indicators into their own loops since climateZ, clay, DNA not all found in them
+ if (myVar == 'p') {
+  ml_indic <- ml_EC_RA_corr %>% 
+    select(gDF$Predictor, paste0(myVar)) %>% 
+    subset(select=-c(DNA))
+ }
  
- ec.mat <- cor_pmat(ml_indic)
- ec.mat <- ec.mat %>% 
+ if (myVar == 'ph') {
+  ml_indic <- ml_EC_RA_corr %>% 
+    select(gDF$Predictor, paste0(myVar)) %>% 
+    subset(select=-c(clay))
+ }
+ 
+ if (myVar == 'zn') {
+  ml_indic <- ml_EC_RA_corr %>% 
+    select(gDF$Predictor, paste0(myVar)) %>% 
+    subset(select=-c(clay, DNA))
+ }
+ 
+ if (myVar == 'fe') {
+  ml_indic <- ml_EC_RA_corr %>% 
+    select(gDF$Predictor, paste0(myVar)) %>% 
+    subset(select=-c(ClimateZ))
+ }
+ 
+ if (myVar %in% c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'ace', 'activeC', 'k')) {
+  ml_indic <- ml_EC_RA_corr %>% 
+    select(gDF$Predictor, paste0(myVar)) %>% 
+    subset(select=-c(ClimateZ, clay, DNA))
+ }
+ 
+ ml_indic <- as.matrix(ml_indic)
+ ec.mat <- rcorr(ml_indic)
+ ec.r <- ec.mat$r
+ ec.indic <- ec.r %>% 
    subset(select = paste0(myVar))
- ec.mat <- data.frame(ec.mat)
- ec.mat <- rownames_to_column(ec.mat, var = "Predictor")
+ ec.indic <- data.frame(ec.indic)
 
- ec.mat.pos <- filter(ec.mat, paste0(myVar) > 0)
- ec.mat.neg <- filter(ec.mat, paste0(myVar) < 0)
+ # get positive and negative correlation values
+ ec.indic.pos <- ec.indic %>% 
+   filter(ec.indic[,1] > 0)
+ ec.indic.neg <- ec.indic %>% 
+   filter(ec.indic[,1] < 0)
+ ec.indic.pos <- rownames_to_column(ec.indic.pos, var = "Predictor")
+ ec.indic.neg <- rownames_to_column(ec.indic.neg, var = "Predictor")
+ ec.indic.pos <- ec.indic.pos[ec.indic.pos$Predictor != myVar,]
+ ec.indic.neg <- ec.indic.neg[ec.indic.neg$Predictor != myVar,]
 
-# filter out poor indicators in pos and neg correlations
- # putting this in a loop because P does not have ClimateZ in its model
- if (myVar %in% c('ace', 'activeC', 'k','fe')){
-  gDF.pos <- gDF %>% 
-    filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
-  gDF.neg <- gDF %>% 
-    filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','ClimateZ','DNA')) 
- }
- 
- if (myVar %in% c('p', 'ph')){
-  gDF.pos <- gDF %>% 
-    filter(Predictor %in% ec.mat.pos$Predictor | Predictor %in% c('clay','DNA')) 
-  gDF.neg <- gDF %>% 
-    filter(Predictor %in% ec.mat.neg$Predictor | Predictor %in% c('clay','DNA')) 
- }
+  # filter out poor indicators in pos and neg correlations
+  # add this if I want to include climate, clay, and DNA:
+  # | Predictor %in% c('clay','ClimateZ','DNA')
+ gDF.pos <- gDF %>% 
+   filter(Predictor %in% ec.indic.pos$Predictor) 
+ gDF.neg <- gDF %>% 
+   filter(Predictor %in% ec.indic.neg$Predictor) 
  
   temp.pos <- gDF.pos %>% group_by(Predictor) %>%
     summarise(Var = median(VIP)) %>%
@@ -458,6 +504,24 @@ for (myVar in myVars) {
               "NA" = "white")
   
   # changing myVar format for cleaner plot titles
+  if (myVar == 'resp'){
+    myVar <- "Resp"
+  }
+  if (myVar == 'agg_stab'){
+    myVar <- "AggStab"
+  }
+  if (myVar == 'water_cap'){
+    myVar <- "WaterCap"
+  }
+  if (myVar == 'mg'){
+    myVar <- "Mg"
+  }
+  if (myVar == 'mn'){
+    myVar <- "Mn"
+  }
+  if (myVar == 'zn'){
+    myVar <- "Zn"
+  }
   if (myVar == 'ace'){
     myVar <- "ACE"
   }
@@ -476,7 +540,6 @@ for (myVar in myVars) {
   if (myVar == 'fe'){
     myVar <- "Fe"
   }
-  
   # positive correlation graph
   means <- aggregate(VIP ~ Predictor, gDF.pos, median)
   means$Category <- 'Other'
@@ -518,24 +581,32 @@ p_legend3 <- as_ggplot(p_legend2)
 p_legend3
 
 # positive correlations graph
-p_merged_pos <- ggarrange(ACE_pos, ActiveC_pos, Fe_pos, K_pos, P_pos, pH_pos, 
-                          p_legend3,nrow = 2, ncol = 4)
+p_merged_pos <- ggarrange(ACE_pos, ActiveC_pos, AggStab_pos, 
+                                Fe_pos, K_pos, Mg_pos, Mn_pos, 
+                                P_pos, pH_pos, Resp_pos, 
+                                SOM_pos, WaterCap_pos, Zn_pos,
+                                p_legend3, nrow = 2, ncol = 7)
 p_merged_pos
 
 annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Positively Correlated Model Predictors", size = 14))
+                bottom = text_grob("Positively Correlated Model Predictors", size = 14),
+                top = text_grob("All Enzymes", size = 14))
 
-ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
-p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, Fe_neg, K_neg, P_neg, pH_neg, 
-                          p_legend3,nrow = 2, ncol = 4)
+p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg, 
+                                Fe_neg, K_neg, Mg_neg, Mn_neg, 
+                                P_neg, pH_neg, Resp_neg, 
+                                SOM_neg, WaterCap_neg, Zn_neg,
+                                p_legend3, nrow = 2, ncol = 7)
 p_merged_neg
 
 annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Negatively Correlated Model Predictors", size = 14))
+                bottom = text_grob("Negatively Correlated Model Predictors", size = 14),
+                top = text_grob("All Enzymes", size = 14))
 
-ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=8, width=12)
+ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 
