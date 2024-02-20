@@ -6,6 +6,7 @@ output: html_document
 ---
 
 ### Libraries
+### make sure to clean these up, get rid of ones I don't use
 ```{r}
 library(ggplot2)
 library(readxl)
@@ -24,6 +25,8 @@ library(gridExtra)
 library(pairwiseAdonis)
 library(ggcorrplot)
 library(Hmisc)
+library(rlist)
+library(pipeR)
 ```
 
 ### Figure 1
@@ -66,7 +69,44 @@ ggsave("figures/ml_ec_r2_RA.png", unit = "in", width = 10, height = 5, dpi = 300
 
 ### Figure 2
 # functional redundancy in taxonomic models
+# working on code for this using Dan's output, but will need to rerun with new taxonomic models to make sure models are consistent (something probably changed between when Dan did it and when I last reran the models)
+# Ceres currently under major maintenance and inaccessible, so need to wait to rerun taxonomic models
+# also need the file that says what enzymes are in each taxon
 ```{r}
+### hops 2018
+hops2018 <- read.delim("picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv",
+                       sep = "\t")
+
+# change name of function. column
+colnames(hops2018)[2] <- "EC"
+
+# filter down to function and taxon columns to reduce size of df
+hops2018 <- hops2018[,2:3]
+
+# group by taxon and make a list of ECs per taxon
+hops2018 <- hops2018 %>% 
+  group_by(taxon) %>% 
+  summarise(ECs = list(EC))
+
+### hops ARS
+hopsARS <- read.delim("picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz",
+                       sep = "\t")
+colnames(hopsARS)[2] <- "EC"
+hopsARS <- hopsARS[,2:3]
+hopsARS <- hopsARS %>% 
+  group_by(taxon) %>% 
+  summarise(ECs = list(EC))
+
+### test merging hops 2018 and hops ARS
+hops_merged <- hops2018 %>% 
+  full_join(hopsARS, by = "taxon")
+
+# may have to just search for ECs in each column?
+
+list.search(hops_merged$ECs.x[1], . =="EC:1.1.1.1")
+
+
+# figure out what file I can use to connect OTU IDs with taxa
 
 ```
 
