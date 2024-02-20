@@ -26,7 +26,10 @@ library(ggcorrplot)
 library(Hmisc)
 ```
 
-### Comparison R^2 of different data types
+### Figure 1
+# comparison of model observed vs predicted R^2 values
+# need to rerun taxonomic models, with nutrient data
+# then add to below plot
 ```{r}
 # tax data was pulled from dan_out/All_stats_randomForest and added to All_stats.csv
 ml_stats <- read.csv("machine_learning/16S_EC/All_stats.csv")
@@ -61,8 +64,16 @@ p1
 ggsave("figures/ml_ec_r2_RA.png", unit = "in", width = 10, height = 5, dpi = 300, device = "pdf")
 ```
 
-### PCOAs using tsne
-### to do: calculate permanova between land use and climate zone, clean up legend labels
+### Figure 2
+# functional redundancy in taxonomic models
+```{r}
+
+```
+
+### Figure 3
+# PCOAs using tsne
+# add PCOA of taxonomic data
+# calculate permanova between land use and climate zone for EC and taxonomic data
 ```{r}
 P <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
 
@@ -96,8 +107,9 @@ permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
                                 permutations = 9999)
 ```
 
-### Feature importance distributions of indicators with better all enzyme models
-# separating by positively and negatively correlated enzymes
+### Figure 4 and Figure 5
+# Feature importance distributions of indicators with better all enzyme models
+# separating by positively (Figure 4) and negatively (Figure 5) correlated enzymes
 ```{r}
 myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
