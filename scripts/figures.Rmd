@@ -78,7 +78,7 @@ hops2018 <- read.delim("picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv"
                        sep = "\t")
 
 # change name of function. column
-colnames(hops2018)[2] <- "EC"
+colnames(hops2018)[2] <- "Hops2018_EC"
 
 # filter down to function and taxon columns to reduce size of df
 hops2018 <- hops2018[,2:3]
@@ -86,24 +86,78 @@ hops2018 <- hops2018[,2:3]
 # group by taxon and make a list of ECs per taxon
 hops2018 <- hops2018 %>% 
   group_by(taxon) %>% 
-  summarise(ECs = list(EC))
+  summarise(Hops2018_ECs = list(Hops2018_EC))
 
 ### hops ARS
 hopsARS <- read.delim("picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz",
                        sep = "\t")
-colnames(hopsARS)[2] <- "EC"
+colnames(hopsARS)[2] <- "HopsARS_EC"
 hopsARS <- hopsARS[,2:3]
 hopsARS <- hopsARS %>% 
   group_by(taxon) %>% 
-  summarise(ECs = list(EC))
+  summarise(HopsARS_ECs = list(HopsARS_EC))
 
-### test merging hops 2018 and hops ARS
-hops_merged <- hops2018 %>% 
-  full_join(hopsARS, by = "taxon")
+### NRCS part 1
+NRCS1 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib1.RDS")
+colnames(NRCS1)[2] <- "NRCS1_EC"
+NRCS1 <- NRCS1[,2:3]
+NRCS1 <- NRCS1 %>% 
+  group_by(taxon) %>% 
+  summarise(NRCS1_ECs = list(NRCS1_EC))
 
+### NRCS part 2
+NRCS2 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib2.RDS")
+colnames(NRCS2)[2] <- "NRCS2_EC"
+NRCS2 <- NRCS2[,2:3]
+NRCS2 <- NRCS2 %>% 
+  group_by(taxon) %>% 
+  summarise(NRCS2_ECs = list(NRCS2_EC))
+
+### Rangeland
+rangeland <- read.delim("picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz",
+                       sep = "\t")
+colnames(rangeland)[2] <- "Rangeland_EC"
+rangeland <- rangeland[,2:3]
+rangeland <- rangeland %>% 
+  group_by(taxon) %>% 
+  summarise(Rangeland_ECs = list(Rangeland_EC))
+
+### merge files and save
+all_merged <- hops2018 %>% 
+  full_join(hopsARS, by = "taxon") %>% 
+  full_join(NRCS1, by = "taxon") %>% 
+  full_join(NRCS2, by = "taxon") %>% 
+  full_join(rangeland, by = "taxon")
+
+saveRDS(all_merged, "picrust2_files/ECs_per_otu.RDS")
+
+# try merging the lists together
+### this seems to work, can add all dfs and merge into one column, then try to use the unique function to pipe the lists into another column and potentially separate that out into their own cells if needed
+all_merged <- all_merged %>% 
+  mutate(all_ECs = mapply(c, Hops2018_ECs, HopsARS_ECs, NRCS1_ECs,
+                          NRCS2_ECs, Rangeland_ECs))
+all_merged_2 <- all_merged[,c(1,7)]
+all_merged_2$unique_ECs <- unique(all_merged_2$all_ECs)
+
+
+# import varimps (will put into a loop later, just getting hard part of code down)
+# importing Dan's old varimps, but will rerun when scinet is back up
+ace_varimps <- read.csv("dan_out_2/ace_TAX_RA_varimp.csv")
+
+
+
+
+######## 
+# decide if I want to stick with this file, or figure out how to merge columns and OTU lists
 # may have to just search for ECs in each column?
 
+# this works for searching a list (if I need it)
 list.search(hops_merged$ECs.x[1], . =="EC:1.1.1.1")
+
+# try to merge lists for each OTU
+#all_merged$ECs_all <- Map(function(...) sort(union(...)), all_merged$Hops2018_ECs, all_)
+
+DF$result <- Map(function(...) sort(union(...)), DF$pos[1], DF$pos)
 
 
 # figure out what file I can use to connect OTU IDs with taxa
