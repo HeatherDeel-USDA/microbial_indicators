@@ -32,6 +32,15 @@ ml_TAX_16S <- merge(data.merged, OTU1, by = "PLFA_ID", all.x = TRUE)
 # get rid of NAs - going to assume they are 0
 ml_TAX_16S[is.na(ml_TAX_16S)] <- 0
 
+# scale nutrients
+ml_TAX_16S <- ml_TAX_16S %>% 
+  mutate(p = (scale(p))) %>% 
+  mutate(k = (scale(k))) %>% 
+  mutate(mg = (scale(mg))) %>% 
+  mutate(fe = (scale(fe))) %>% 
+  mutate(mn = (scale(mn))) %>% 
+  mutate(zn = (scale(zn)))
+
 # save
 saveRDS(ml_TAX_16S, file = "machine_learning/16S_TAX/ml_TAX_16S.RDS")
 ```

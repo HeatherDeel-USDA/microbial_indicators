@@ -130,15 +130,16 @@ all_merged <- hops2018 %>%
   full_join(rangeland, by = "taxon")
 
 saveRDS(all_merged, "picrust2_files/ECs_per_otu.RDS")
+all_merged <- readRDS("picrust2_files/ECs_per_otu.RDS")
 
-# try merging the lists together
-### this seems to work, can add all dfs and merge into one column, then try to use the unique function to pipe the lists into another column and potentially separate that out into their own cells if needed
+# merge lists together
 all_merged <- all_merged %>% 
   mutate(all_ECs = mapply(c, Hops2018_ECs, HopsARS_ECs, NRCS1_ECs,
                           NRCS2_ECs, Rangeland_ECs))
 all_merged_2 <- all_merged[,c(1,7)]
-all_merged_2$unique_ECs <- unique(all_merged_2$all_ECs)
 
+
+####### these OTU ids are output by picrust2. Figure out where those are coming from and try to connect them with taxa before continuing
 
 # import varimps (will put into a loop later, just getting hard part of code down)
 # importing Dan's old varimps, but will rerun when scinet is back up
