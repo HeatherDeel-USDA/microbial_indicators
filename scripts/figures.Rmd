@@ -116,94 +116,110 @@ hopsARS <- read.delim("picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz
                        sep = "\t")
 hopsARS_otuid <- read.delim("16S_dada2_output/Hops.ARS.taxonomy.otuid.csv",
                              sep = ",")
-colnames(hopsARS)[2] <- "hopsARS_EC"
+colnames(hopsARS)[2] <- "hopsARS_EC" 
 hopsARS$taxon <- gsub("OTU", "", hopsARS$taxon)  
 colnames(hopsARS)[3] <- "OTU_ID"  
 hopsARS <- hopsARS[,2:3] 
-hopsARS <- hopsARS %>% 
-  group_by(OTU_ID) %>% 
-  summarise(hopsARS_ECs = list(hopsARS_EC))
 hopsARS_otuid$OTU_ID <- as.character(hopsARS_otuid$OTU_ID)
 hopsARS_sp <- hopsARS %>% 
   left_join(hopsARS_otuid, by = "OTU_ID")
-hopsARS_sp <- hopsARS_sp[,c(2,4)]
-hopsARS_sp <- hopsARS_sp[!hopsARS_sp$species == "",]
+hopsARS_sp <- hopsARS_sp[,c(1,4)] 
+hopsARS_sp <- hopsARS_sp[!hopsARS_sp$species == "",] 
+hopsARS_sp <- hopsARS_sp %>% 
+  group_by(species) %>% 
+  summarise(hopsARS_ECs = list(hopsARS_EC))
+hopsARS_sp2 <- separate_wider_delim(hopsARS_sp, cols = species, delim = ";", 
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+hopsARS_sp2 <- hopsARS_sp2[,7:8]
+hopsARS_sp2$species <- gsub(" ", "_", hopsARS_sp2$species)
 
 ### NRCS part 1
 NRCS1 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib1.RDS")
-NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
+NRCS1_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
                              sep = ",")
-colnames(NRCS1)[2] <- "NRCS1_EC"
+colnames(NRCS1)[2] <- "NRCS1_EC" 
 NRCS1$taxon <- gsub("OTU", "", NRCS1$taxon)  
 colnames(NRCS1)[3] <- "OTU_ID"  
 NRCS1 <- NRCS1[,2:3] 
-NRCS1 <- NRCS1 %>% 
-  group_by(OTU_ID) %>% 
-  summarise(NRCS1_ECs = list(NRCS1_EC))
-NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
+NRCS1_otuid$OTU_ID <- as.character(NRCS1_otuid$OTU_ID)
 NRCS1_sp <- NRCS1 %>% 
-  left_join(NRCS_otuid, by = "OTU_ID")
-NRCS1_sp <- NRCS1_sp[,c(2,4)]
-NRCS1_sp <- NRCS1_sp[!NRCS1_sp$species == "",]
+  left_join(NRCS1_otuid, by = "OTU_ID")
+NRCS1_sp <- NRCS1_sp[,c(1,4)] 
+NRCS1_sp <- NRCS1_sp[!NRCS1_sp$species == "",] 
+NRCS1_sp <- NRCS1_sp %>% 
+  group_by(species) %>% 
+  summarise(NRCS1_ECs = list(NRCS1_EC))
+NRCS1_sp2 <- separate_wider_delim(NRCS1_sp, cols = species, delim = ";", 
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+NRCS1_sp2 <- NRCS1_sp2[,7:8]
+NRCS1_sp2$species <- gsub(" ", "_", NRCS1_sp2$species)
 
 ### NRCS part 2
 NRCS2 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib2.RDS")
-NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
+NRCS2_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
                              sep = ",")
-colnames(NRCS2)[2] <- "NRCS2_EC"
+colnames(NRCS2)[2] <- "NRCS2_EC" 
 NRCS2$taxon <- gsub("OTU", "", NRCS2$taxon)  
 colnames(NRCS2)[3] <- "OTU_ID"  
 NRCS2 <- NRCS2[,2:3] 
-NRCS2 <- NRCS2 %>% 
-  group_by(OTU_ID) %>% 
-  summarise(NRCS2_ECs = list(NRCS2_EC))
-NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
+NRCS2_otuid$OTU_ID <- as.character(NRCS2_otuid$OTU_ID)
 NRCS2_sp <- NRCS2 %>% 
-  left_join(NRCS_otuid, by = "OTU_ID")
-NRCS2_sp <- NRCS2_sp[,c(2,4)]
-NRCS2_sp <- NRCS2_sp[!NRCS2_sp$species == "",]
+  left_join(NRCS2_otuid, by = "OTU_ID")
+NRCS2_sp <- NRCS2_sp[,c(1,4)] 
+NRCS2_sp <- NRCS2_sp[!NRCS2_sp$species == "",] 
+NRCS2_sp <- NRCS2_sp %>% 
+  group_by(species) %>% 
+  summarise(NRCS2_ECs = list(NRCS2_EC))
+NRCS2_sp2 <- separate_wider_delim(NRCS2_sp, cols = species, delim = ";", 
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+NRCS2_sp2 <- NRCS2_sp2[,7:8]
+NRCS2_sp2$species <- gsub(" ", "_", NRCS2_sp2$species)
 
 ### Rangeland
 rangeland <- read.delim("picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz",
                        sep = "\t")
 rangeland_otuid <- read.delim("16S_dada2_output/Rangeland.taxonomy.otuid.csv",
                              sep = ",")
-colnames(rangeland)[2] <- "rangeland_EC"
+colnames(rangeland)[2] <- "rangeland_EC" 
 rangeland$taxon <- gsub("OTU", "", rangeland$taxon)  
 colnames(rangeland)[3] <- "OTU_ID"  
 rangeland <- rangeland[,2:3] 
-rangeland <- rangeland %>% 
-  group_by(OTU_ID) %>% 
-  summarise(rangeland_ECs = list(rangeland_EC))
 rangeland_otuid$OTU_ID <- as.character(rangeland_otuid$OTU_ID)
 rangeland_sp <- rangeland %>% 
   left_join(rangeland_otuid, by = "OTU_ID")
-rangeland_sp <- rangeland_sp[,c(2,4)]
-rangeland_sp <- rangeland_sp[!rangeland_sp$species == "",]
+rangeland_sp <- rangeland_sp[,c(1,4)] 
+rangeland_sp <- rangeland_sp[!rangeland_sp$species == "",] 
+rangeland_sp <- rangeland_sp %>% 
+  group_by(species) %>% 
+  summarise(rangeland_ECs = list(rangeland_EC))
+rangeland_sp2 <- separate_wider_delim(rangeland_sp, cols = species, delim = ";", 
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+rangeland_sp2 <- rangeland_sp2[,7:8]
+rangeland_sp2$species <- gsub(" ", "_", rangeland_sp2$species)
 
-
-############## need to figure out how to join duplicates - there are many of the same species with different EC lists. Can probably just group by species, should perhaps do this with species instead of OTU ID?
-##### with some nomenclature formatting, should then be able to join with varimp results
-##### but need to be very careful to make sure formatting is consistent with varimp output - get rid of all spaces, perhaps
-
-### merge files, format, and save
-all_merged <- hops2018_sp %>% 
-  full_join(hopsARS_sp, by = "species", relationship = "many-to-many") %>% 
-  full_join(NRCS1_sp, by = "species", relationship = "many-to-many") %>% 
-  full_join(NRCS2_sp, by = "species", relationship = "many-to-many") %>% 
-  full_join(rangeland_sp, by = "species", relationship = "many-to-many")
-
-
-
-
-saveRDS(all_merged, "picrust2_files/ECs_per_species.RDS")
-all_merged <- readRDS("picrust2_files/ECs_per_species.RDS")
-
-# merge lists together
+### merge and save
+all_merged <- hops2018_sp2 %>% 
+  full_join(hopsARS_sp2, by = "species") %>% 
+  full_join(NRCS1_sp2, by = "species") %>% 
+  full_join(NRCS2_sp2, by = "species") %>% 
+  full_join(rangeland_sp2, by = "species")
 all_merged <- all_merged %>% 
-  mutate(all_ECs = mapply(c, Hops2018_ECs, HopsARS_ECs, NRCS1_ECs,
-                          NRCS2_ECs, Rangeland_ECs))
-all_merged_2 <- all_merged[,c(1,7)]
+  mutate(all_ECs = mapply(c, Hops2018_ECs, hopsARS_ECs, NRCS1_ECs,
+                          NRCS2_ECs, rangeland_ECs))
+all_merged2 <- all_merged[,c(1,7)]
+
+all_merged2 <- apply(all_merged2,2,as.character)
+saveRDS(all_merged2, "picrust2_files/ECs_per_species.RDS")
+write.csv(all_merged2, file = "picrust2_files/ECs_per_species.csv")
+#all_merged <- readRDS("picrust2_files/ECs_per_species.RDS")
 
 
 ####### these OTU ids are output by picrust2. Figure out where those are coming from and try to connect them with taxa before continuing
