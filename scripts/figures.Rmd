@@ -77,60 +77,127 @@ ggsave("figures/ml_ec_r2_RA.png", unit = "in", width = 10, height = 5, dpi = 300
 hops2018 <- read.delim("picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv",
                        sep = "\t")
 
-# change name of function. column
-colnames(hops2018)[2] <- "Hops2018_EC"
+# read in otu ids
+# otu ids are specific to each data set, so need to associate with species for each one
+hops2018_otuid <- read.delim("16S_dada2_output/Hops.2018.taxonomy.otuid.csv",
+                             sep = ",")
 
-# filter down to function and taxon columns to reduce size of df
-hops2018 <- hops2018[,2:3]
+# format hops2018
+colnames(hops2018)[2] <- "Hops2018_EC" # change name of function. column
+hops2018$taxon <- gsub("OTU", "", hops2018$taxon)  # get rid of "OTU" in taxon column
+colnames(hops2018)[3] <- "OTU_ID"  # change name to "OTU_ID"
+hops2018 <- hops2018[,2:3] # filter down to function and taxon columns to reduce size of df
 
-# group by taxon and make a list of ECs per taxon
-hops2018 <- hops2018 %>% 
-  group_by(taxon) %>% 
+# get species
+hops2018_otuid$OTU_ID <- as.character(hops2018_otuid$OTU_ID)
+hops2018_sp <- hops2018 %>% 
+  left_join(hops2018_otuid, by = "OTU_ID")
+hops2018_sp <- hops2018_sp[,c(1,4)] # filter down to ECs and species
+hops2018_sp <- hops2018_sp[!hops2018_sp$species == "",] # get rid of unclassified species
+
+# group by species and make a list of ECs per species
+hops2018_sp <- hops2018_sp %>% 
+  group_by(species) %>% 
   summarise(Hops2018_ECs = list(Hops2018_EC))
+
+# split by ;
+hops2018_sp2 <- separate_wider_delim(hops2018_sp, cols = species, delim = ";", 
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+
+# format hops2018_sp2
+hops2018_sp2 <- hops2018_sp2[,7:8] # filter to only species and ECs
+hops2018_sp2$species <- gsub(" ", "_", hops2018_sp2$species) # replace spaces with _ (like in varimps)
+
 
 ### hops ARS
 hopsARS <- read.delim("picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz",
                        sep = "\t")
-colnames(hopsARS)[2] <- "HopsARS_EC"
-hopsARS <- hopsARS[,2:3]
+hopsARS_otuid <- read.delim("16S_dada2_output/Hops.ARS.taxonomy.otuid.csv",
+                             sep = ",")
+colnames(hopsARS)[2] <- "hopsARS_EC"
+hopsARS$taxon <- gsub("OTU", "", hopsARS$taxon)  
+colnames(hopsARS)[3] <- "OTU_ID"  
+hopsARS <- hopsARS[,2:3] 
 hopsARS <- hopsARS %>% 
-  group_by(taxon) %>% 
-  summarise(HopsARS_ECs = list(HopsARS_EC))
+  group_by(OTU_ID) %>% 
+  summarise(hopsARS_ECs = list(hopsARS_EC))
+hopsARS_otuid$OTU_ID <- as.character(hopsARS_otuid$OTU_ID)
+hopsARS_sp <- hopsARS %>% 
+  left_join(hopsARS_otuid, by = "OTU_ID")
+hopsARS_sp <- hopsARS_sp[,c(2,4)]
+hopsARS_sp <- hopsARS_sp[!hopsARS_sp$species == "",]
 
 ### NRCS part 1
 NRCS1 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib1.RDS")
+NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
+                             sep = ",")
 colnames(NRCS1)[2] <- "NRCS1_EC"
-NRCS1 <- NRCS1[,2:3]
+NRCS1$taxon <- gsub("OTU", "", NRCS1$taxon)  
+colnames(NRCS1)[3] <- "OTU_ID"  
+NRCS1 <- NRCS1[,2:3] 
 NRCS1 <- NRCS1 %>% 
-  group_by(taxon) %>% 
+  group_by(OTU_ID) %>% 
   summarise(NRCS1_ECs = list(NRCS1_EC))
+NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
+NRCS1_sp <- NRCS1 %>% 
+  left_join(NRCS_otuid, by = "OTU_ID")
+NRCS1_sp <- NRCS1_sp[,c(2,4)]
+NRCS1_sp <- NRCS1_sp[!NRCS1_sp$species == "",]
 
 ### NRCS part 2
 NRCS2 <- readRDS("picrust2_files/NRCS/EC/pred_metagenome_contrib2.RDS")
+NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
+                             sep = ",")
 colnames(NRCS2)[2] <- "NRCS2_EC"
-NRCS2 <- NRCS2[,2:3]
+NRCS2$taxon <- gsub("OTU", "", NRCS2$taxon)  
+colnames(NRCS2)[3] <- "OTU_ID"  
+NRCS2 <- NRCS2[,2:3] 
 NRCS2 <- NRCS2 %>% 
-  group_by(taxon) %>% 
+  group_by(OTU_ID) %>% 
   summarise(NRCS2_ECs = list(NRCS2_EC))
+NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
+NRCS2_sp <- NRCS2 %>% 
+  left_join(NRCS_otuid, by = "OTU_ID")
+NRCS2_sp <- NRCS2_sp[,c(2,4)]
+NRCS2_sp <- NRCS2_sp[!NRCS2_sp$species == "",]
 
 ### Rangeland
 rangeland <- read.delim("picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz",
                        sep = "\t")
-colnames(rangeland)[2] <- "Rangeland_EC"
-rangeland <- rangeland[,2:3]
+rangeland_otuid <- read.delim("16S_dada2_output/Rangeland.taxonomy.otuid.csv",
+                             sep = ",")
+colnames(rangeland)[2] <- "rangeland_EC"
+rangeland$taxon <- gsub("OTU", "", rangeland$taxon)  
+colnames(rangeland)[3] <- "OTU_ID"  
+rangeland <- rangeland[,2:3] 
 rangeland <- rangeland %>% 
-  group_by(taxon) %>% 
-  summarise(Rangeland_ECs = list(Rangeland_EC))
+  group_by(OTU_ID) %>% 
+  summarise(rangeland_ECs = list(rangeland_EC))
+rangeland_otuid$OTU_ID <- as.character(rangeland_otuid$OTU_ID)
+rangeland_sp <- rangeland %>% 
+  left_join(rangeland_otuid, by = "OTU_ID")
+rangeland_sp <- rangeland_sp[,c(2,4)]
+rangeland_sp <- rangeland_sp[!rangeland_sp$species == "",]
 
-### merge files and save
-all_merged <- hops2018 %>% 
-  full_join(hopsARS, by = "taxon") %>% 
-  full_join(NRCS1, by = "taxon") %>% 
-  full_join(NRCS2, by = "taxon") %>% 
-  full_join(rangeland, by = "taxon")
 
-saveRDS(all_merged, "picrust2_files/ECs_per_otu.RDS")
-all_merged <- readRDS("picrust2_files/ECs_per_otu.RDS")
+############## need to figure out how to join duplicates - there are many of the same species with different EC lists. Can probably just group by species, should perhaps do this with species instead of OTU ID?
+##### with some nomenclature formatting, should then be able to join with varimp results
+##### but need to be very careful to make sure formatting is consistent with varimp output - get rid of all spaces, perhaps
+
+### merge files, format, and save
+all_merged <- hops2018_sp %>% 
+  full_join(hopsARS_sp, by = "species", relationship = "many-to-many") %>% 
+  full_join(NRCS1_sp, by = "species", relationship = "many-to-many") %>% 
+  full_join(NRCS2_sp, by = "species", relationship = "many-to-many") %>% 
+  full_join(rangeland_sp, by = "species", relationship = "many-to-many")
+
+
+
+
+saveRDS(all_merged, "picrust2_files/ECs_per_species.RDS")
+all_merged <- readRDS("picrust2_files/ECs_per_species.RDS")
 
 # merge lists together
 all_merged <- all_merged %>% 
