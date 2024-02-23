@@ -211,15 +211,15 @@ all_merged <- hops2018_sp2 %>%
   full_join(NRCS1_sp2, by = "species") %>% 
   full_join(NRCS2_sp2, by = "species") %>% 
   full_join(rangeland_sp2, by = "species")
-all_merged <- all_merged %>% 
-  mutate(all_ECs = mapply(c, Hops2018_ECs, hopsARS_ECs, NRCS1_ECs,
-                          NRCS2_ECs, rangeland_ECs))
-all_merged2 <- all_merged[,c(1,7)]
 
-all_merged2 <- apply(all_merged2,2,as.character)
-saveRDS(all_merged2, "picrust2_files/ECs_per_species.RDS")
-write.csv(all_merged2, file = "picrust2_files/ECs_per_species.csv")
-#all_merged <- readRDS("picrust2_files/ECs_per_species.RDS")
+# this merges all ECs into one column, but my computer can not handle this data frame
+# all_merged <- all_merged %>% 
+#   mutate(all_ECs = mapply(c, Hops2018_ECs, hopsARS_ECs, NRCS1_ECs,
+#                           NRCS2_ECs, rangeland_ECs))
+# all_merged2 <- all_merged[,c(1,7)]
+
+saveRDS(all_merged, "picrust2_files/ECs_per_species.RDS")
+all_merged <- readRDS("picrust2_files/ECs_per_species.RDS")
 
 
 ####### these OTU ids are output by picrust2. Figure out where those are coming from and try to connect them with taxa before continuing
