@@ -893,3 +893,26 @@ ggplot(p_df_subsubclass, aes(x = SH_bin, y = Abundance, fill = Genus)) +
 # 
 # ggsave("figures/gibbs_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 
+
+# create list of ECs counts across all data - which ECs are highly functionally redundant?
+# hops2018_count <- table(unlist(lapply(all_merged$Hops2018_ECs, unique)))
+# hops2018_count <- data.frame(hops2018_count)
+# hopsARS_count <- table(unlist(lapply(all_merged$hopsARS_ECs, unique)))
+# hopsARS_count <- data.frame(hopsARS_count)
+# NRCS1_count <- table(unlist(lapply(all_merged$NRCS1_ECs, unique)))
+# NRCS1_count <- data.frame(NRCS1_count)
+# NRCS2_count <- table(unlist(lapply(all_merged$NRCS2_ECs, unique)))
+# NRCS2_count <- data.frame(NRCS2_count)
+# rangeland_count <- table(unlist(lapply(all_merged$rangeland_ECs, unique)))
+# rangeland_count <- data.frame(rangeland_count)
+# 
+# EC_counts <- hops2018_count %>% 
+#   full_join(hopsARS_count, by = "Var1") %>% 
+#   full_join(NRCS1_count, by = "Var1") %>% 
+#   full_join(NRCS2_count, by = "Var1") %>% 
+#   full_join(rangeland_count, by = "Var1")
+# EC_counts <- EC_counts %>% 
+#   mutate(Freq_total = select(., 2:6) %>% rowSums(na.rm = TRUE))
+# EC_counts <- EC_counts[,c(1,7)]
+# colnames(EC_counts)[1] <- "EC"
+# saveRDS(EC_counts, "picrust2_files/EC_freq.RDS")
