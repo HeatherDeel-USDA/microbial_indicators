@@ -27,6 +27,7 @@ library(ggcorrplot)
 library(Hmisc)
 library(rlist)
 library(pipeR)
+library(RColorBrewer)
 ```
 
 ### Figure 1
@@ -291,6 +292,44 @@ for (myVar in myVars) {
     group_by(all_ECs) %>% 
    summarise(species_freq = n())
   
+    # changing myVar format for cleaner plot titles
+  if (myVar == 'resp'){
+    myVar <- "Resp"
+  }
+  if (myVar == 'agg_stab'){
+    myVar <- "AggStab"
+  }
+  if (myVar == 'water_cap'){
+    myVar <- "WaterCap"
+  }
+  if (myVar == 'mg'){
+    myVar <- "Mg"
+  }
+  if (myVar == 'mn'){
+    myVar <- "Mn"
+  }
+  if (myVar == 'zn'){
+    myVar <- "Zn"
+  }
+  if (myVar == 'ace'){
+    myVar <- "ACE"
+  }
+  if (myVar == 'activeC'){
+    myVar <- "ActiveC"
+  }
+  if (myVar == 'ph'){
+    myVar <- "pH"
+  }
+  if (myVar == 'p'){
+    myVar <- "P"
+  }
+  if (myVar == 'k'){
+    myVar <- "K"
+  }
+  if (myVar == 'fe'){
+    myVar <- "Fe"
+  }
+  
   # make bar chart of number of species for each EC
   p <- ggplot(all_merged_imp2_unlisted3, aes(x = all_ECs, y = species_freq)) + 
     geom_bar(stat = "identity") +
@@ -298,15 +337,39 @@ for (myVar in myVars) {
     theme(axis.text.x = element_text(angle = 45, vjust = 0.6)) +
     labs(x = "", y = "", title = myVar)
   p
-  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
   assign(paste0("sp_per_ez_",myVar),p)
   
   # create abundance df of ECs per species for each indicator
+  # start with all_merged_imp2_unlisted
+  all_merged_imp2_unlisted_ECcount <- all_merged_imp2_unlisted %>% 
+    group_by(all_ECs, species) %>% 
+    summarise(EC_count_per_species = n()) %>% 
+    filter(all_ECs %in% top_ECs_indic$Predictor)
+  
+  ec_abund <- all_merged_imp2_unlisted_ECcount %>% 
+    pivot_wider(names_from = all_ECs, values_from = EC_count_per_species)
+  ec_abund <- replace(ec_abund, is.na(ec_abund), 0)
+  ec_abund <- column_to_rownames(ec_abund, var = "species")
+  ec_abund <- as.matrix(ec_abund)
+
+  # create heatmap
+  pal <- colorRampPalette(brewer.pal(9, "Reds"))(25)
+  #png(filename = paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"))
+  p <- heatmap(ec_abund, main = myVar, col = pal)
+  legend(x = "left", cex = 0.8, legend = c("Low", "Medium", "High"), 
+         fill = colorRampPalette(brewer.pal(9, "Reds"))(3))
+  #dev.off()
+  #assign(paste0("heatmap_",myVar),p)
+  
+  ##### need to play with figure output dimensions. Make wider
+  ##### also get fonts to be nicer - smaller taxa names
+  
   
 }
 
 # create merged plot
-p_sp_ez_all <- ggarrange(sp_per_ez_ace, sp_per_ez_activeC, sp_per_ez_agg_stab,
+p_sp_ez_all <- ggarrange(sp_per_ez_ACE, sp_per_ez_activeC, sp_per_ez_agg_stab,
                          sp_per_ez_fe, sp_per_ez_k, sp_per_ez_mg, sp_per_ez_mn,
                          sp_per_ez_p, sp_per_ez_ph, sp_per_ez_resp, sp_per_ez_SOM,
                          sp_per_ez_water_cap, sp_per_ez_zn, ncol = 4, nrow = 4)
