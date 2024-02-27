@@ -355,11 +355,11 @@ for (myVar in myVars) {
 
   # create heatmap
   pal <- colorRampPalette(brewer.pal(9, "Reds"))(25)
-  #png(filename = paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"))
+  png(filename = paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"))
   p <- heatmap(ec_abund, main = myVar, col = pal)
   legend(x = "left", cex = 0.8, legend = c("Low", "Medium", "High"), 
          fill = colorRampPalette(brewer.pal(9, "Reds"))(3))
-  #dev.off()
+  dev.off()
   #assign(paste0("heatmap_",myVar),p)
   
   ##### need to play with figure output dimensions. Make wider
