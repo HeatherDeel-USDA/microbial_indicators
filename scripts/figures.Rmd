@@ -29,6 +29,7 @@ library(rlist)
 library(pipeR)
 library(RColorBrewer)
 library(png)
+library(gplots)
 ```
 
 ### Figure 1
@@ -73,8 +74,9 @@ p1
 # functional redundancy in taxonomic models
 # commented out sections only need to be run once
 ############ to do:
-# recreate number of species per enzyme bar charts after sorting enzymes from most to least importance
-# merge figures (bar charts and heatmaps) to final figures
+####### redo heatmaps with heatmap.2
+####### make it so that all 10 enzymes are shown in the heatmaps so we show which ones are redunant and which ones aren't
+####### create better, more accurate legend - or just quantify the range of low, medium, and high for each indicator and put in the figure caption
 ```{r}
 ### hops 2018
 # hops2018 <- read.delim("picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv",
@@ -375,7 +377,7 @@ for (myVar in myVars) {
   colnames(ec_abund)[1] <- "Predictor"
   ec_abund <- ec_abund %>% 
     left_join(top_TAX_indic, by = "Predictor") %>% 
-    arrange(-mean_VIP)
+    arrange(mean_VIP)
   ec_abund <- column_to_rownames(ec_abund, var = "Predictor")
   ec_abund <- ec_abund %>% 
     select(starts_with("EC:"))
@@ -383,14 +385,21 @@ for (myVar in myVars) {
 
   # create heatmap
   # rows will be arranged from least important taxa on top to most important taxa on bottom. Columns arranged from least to most important EC for that indicator from left to right
-  pal <- colorRampPalette(brewer.pal(9, "Reds"))(25)
-  
-  png(filename = paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), width = 6.5, height = 3, units = "in", res = 1200)
-  par(cex.main = 0.8)
-  p2 <- heatmap(ec_abund, main = myVar, col = pal, cexRow = 0.7, cexCol = 0.7, Rowv = NA, Colv = NA)
-
-  legend(x = "left", cex = 0.8, legend = c("Low", "Medium", "High"), fill = colorRampPalette(brewer.pal(9, "Reds"))(3))
-  dev.off()
+  # pal <- colorRampPalette(brewer.pal(9, "Reds"))(22)
+  # 
+  # # using heatmap.2
+  # par(cex.main = 0.8)
+  # p_test <- heatmap.2(ec_abund, main = myVar, cexRow = 0.7, cexCol = 0.7, Rowv = FALSE,
+  #                     Colv = FALSE, col = pal, dendrogram = "none", trace = "none",
+  #                     density.info = "none",breaks=c(0,5,10,15,20,25,50,75,100,150,
+  #                                                    250,300,350,400,450,500,750,
+  #                                                    1000,1500,2000,2500,3000,3500))
+ 
+ # using ggplot2
+  ###### just have to go with this. Need to refigure out ordering of ECs and taxa
+ ggplot(all_merged_imp2_unlisted_ECcount2, aes(x = Predictor, y = species, fill = EC_count_per_species)) +
+   geom_tile()
+ 
 }
 
 # create merged plot of species per EC
@@ -403,7 +412,8 @@ annotate_figure(p_bar_all, left = text_grob("Species Frequency", rot = 90, vjust
                 bottom = text_grob("Top Enzymes", size = 14))
 ggsave("figures/species_per_enzyme/species_freq_per_ez.png", device='png', dpi=600, height=12, width=10)
 
-# merged plot of heatmaps created in powerpoint due to difficult format output by the heatmap function
+# create merged plot of heatmaps
+
 
 ```
 
