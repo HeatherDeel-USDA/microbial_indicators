@@ -305,8 +305,6 @@ top_TAX_unique <- top_TAX %>%
 # saveRDS(all_merged_unique, "picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 all_merged_unique <- readRDS("picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 
-
-
 ### graph important ECs in important taxa for each indicator
 
 for (myVar in myVars) {
@@ -317,32 +315,25 @@ for (myVar in myVars) {
 
   # filter all_merged down to just top taxa for each indicator
   all_merged_imp <- all_merged_unique %>% 
-    filter(species %in% top_TAX_indic$species) ##### why am I only getting 8 here? shouldn't I be getting 10??? is it that there are some species that aren't in picrust2? e.g., for ace, Dehalogenimonas_formicexedens and Blastococcus_colisei
-
-  # merge all ECs into one column
-  all_merged_imp2 <- all_merged_imp %>%
-    mutate(all_ECs = mapply(c, Hops2018_ECs, hopsARS_ECs, NRCS1_ECs,NRCS2_ECs, rangeland_ECs))
-  all_merged_imp2 <- all_merged_imp2[,c(1,7)]
-  all_merged_imp2_unlisted <- unnest(all_merged_imp2, all_ECs) ### start here with new data import
+    filter(species %in% top_TAX_indic$species) 
 
   # filter by ECs in top ECs list
-  all_merged_imp2_unlisted2 <- all_merged_imp2_unlisted %>% 
-    filter(all_ECs %in% top_ECs_indic$EC)
+  all_merged_imp2 <- all_merged_imp %>% 
+    filter(EC %in% top_ECs_indic$EC)
   
   # calculate number of species each EC occurs in
-  all_merged_imp2_unlisted3 <- all_merged_imp2_unlisted2 %>% 
-    group_by(species, all_ECs) %>%
+  all_merged_imp3 <- all_merged_imp2 %>% 
+    group_by(species, EC) %>%
     filter(row_number()==1) %>%
     ungroup() %>%
-    group_by(all_ECs) %>% 
+    group_by(EC) %>% 
    summarise(species_freq = n())
   
   # sort ECs based on importance
-  colnames(all_merged_imp2_unlisted3)[1] <- "Predictor"
-  all_merged_imp2_unlisted3 <- all_merged_imp2_unlisted3 %>% 
-    left_join(top_ECs_indic, by = "Predictor")
-  all_merged_imp2_unlisted3 <- all_merged_imp2_unlisted3[order(all_merged_imp2_unlisted3$mean_VIP, decreasing = TRUE),]
-  all_merged_imp2_unlisted3$Predictor <- reorder(all_merged_imp2_unlisted3$Predictor, all_merged_imp2_unlisted3$mean_VIP)
+  all_merged_imp3 <- all_merged_imp3 %>% 
+    left_join(top_ECs_indic, by = "EC")
+  all_merged_imp3 <- all_merged_imp3[order(all_merged_imp3$mean_VIP, decreasing = TRUE),]
+  all_merged_imp3$EC <- reorder(all_merged_imp3$EC, all_merged_imp3$mean_VIP)
   
     # changing myVar format for cleaner plot titles
   if (myVar == 'resp'){
@@ -384,23 +375,17 @@ for (myVar in myVars) {
   
   # make bar chart of number of species for each EC
   # ECs increase in importance from left to right
-  p <- ggplot(all_merged_imp2_unlisted3, aes(x = Predictor, y = species_freq)) + 
+  p <- ggplot(all_merged_imp3, aes(x = EC, y = species_freq)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, vjust = 0.6)) +
     labs(x = "", y = "", title = myVar)
   p
-  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
-  #assign(paste0("bar_",myVar),p)
+  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  assign(paste0("bar_",myVar),p)
   
-  # create abundance df of ECs per species for each indicator
-  # start with all_merged_imp2_unlisted
-  all_merged_imp2_unlisted_ECcount <- all_merged_imp2_unlisted %>% 
-    group_by(all_ECs, species) %>% 
-    summarise(EC_count_per_species = n()) %>% 
-    filter(all_ECs %in% top_ECs_indic$Predictor)
-  
-  # join with top ECs indic to reorder ECs by importance
+  # reorder ECs by importance
+  ############ I am here
   colnames(all_merged_imp2_unlisted_ECcount)[1] <- "Predictor"
   all_merged_imp2_unlisted_ECcount2 <- all_merged_imp2_unlisted_ECcount %>% 
     left_join(top_ECs_indic, by = "Predictor")
@@ -412,7 +397,7 @@ for (myVar in myVars) {
     pivot_wider(names_from = Predictor, values_from = EC_count_per_species)
   ec_abund <- replace(ec_abund, is.na(ec_abund), 0)
   
-  # join with top_TAX_indic to reorder species by importance
+  # reorder species by importance
   colnames(ec_abund)[1] <- "Predictor"
   ec_abund <- ec_abund %>% 
     left_join(top_TAX_indic, by = "Predictor") %>% 
@@ -440,8 +425,9 @@ for (myVar in myVars) {
   # change colors back to red
   # create consistent color breaks between indicators
   # add in all 10 ECs - use full join instead of left join
- ggplot(all_merged_imp2_unlisted_ECcount2, aes(x = Predictor, y = species, fill = EC_count_per_species)) +
-   geom_tile()
+ ggplot(all_merged_imp2, aes(x = EC, y = species, fill = ECs_per_species)) +
+   geom_tile() +
+   theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
  
 }
 
