@@ -75,11 +75,8 @@ p1
 # functional redundancy in taxonomic models
 # commented out sections only need to be run once
 ############ to do:
-####### redo important EC and tax lists so it lists just the unique ones - don't need to overwrite files, just edit the object after reimporting
 ####### redo heatmaps with ggplot2 so I can merge
-####### make it so that all 10 enzymes are shown in the heatmaps so we show which ones are redundant and which ones aren't - use full_join instead of left join
 ####### make color breaks consistent in the heatmaps
-####### redo all_merged file using the picrust2 nsti file inputs
 
 ```{r}
 ### import important ECs
@@ -305,7 +302,7 @@ top_TAX_unique <- top_TAX %>%
 # saveRDS(all_merged_unique, "picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 all_merged_unique <- readRDS("picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 
-### graph important ECs in important taxa for each indicator
+### graphs
 
 for (myVar in myVars) {
   top_ECs_indic <- top_ECs %>% # don't need to use unique list since it's per indicator (and I can keep mean_VIP)
@@ -375,14 +372,15 @@ for (myVar in myVars) {
   
   # make bar chart of number of species for each EC
   # ECs increase in importance from left to right
+  # just counts the important species now. Do we want to measure the total number of enzymes in each species? Unsure
   p <- ggplot(all_merged_imp3, aes(x = EC, y = species_freq)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, vjust = 0.6)) +
     labs(x = "", y = "", title = myVar)
   p
-  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
-  assign(paste0("bar_",myVar),p)
+  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  #assign(paste0("bar_",myVar),p)
   
   # reorder ECs by importance
   all_merged_imp4 <- all_merged_imp2 %>% 
@@ -397,15 +395,15 @@ for (myVar in myVars) {
   colnames(all_merged_imp5)[6] <- "mean_VIP_TAX"
   all_merged_imp5$species <- reorder(all_merged_imp5$species, all_merged_imp5$mean_VIP_TAX)
   
-  ########### you are here
-  # create heatmap
-  # change colors back to red
-  # create consistent color breaks between indicators
-  # fix font sizes, legend, etc
+  # create heatmaps
   ggplot(all_merged_imp5, aes(x = EC, y = species, fill = ECs_per_species)) +
     geom_tile() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
- 
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    scale_fill_binned(low = "white", high = "red", limits = c(0,10),
+                      breaks = c(0,1,2,3,4,5,6,7,8,9,10)) +
+    labs(x = "", y = "", title = myVar, fill = "Enzyme Copies")
+  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  #assign(paste0("heatmap_",myVar),p)
 }
 
 # create merged plot of species per EC
