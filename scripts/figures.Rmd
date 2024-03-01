@@ -302,6 +302,12 @@ top_TAX_unique <- top_TAX %>%
 # saveRDS(all_merged_unique, "picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 all_merged_unique <- readRDS("picrust2_files/Imp_EC_copies_per_imp_species.RDS")
 
+# shorten length of Pseudarthrobacter_sp__NIBRBAC000502772 so the plots aren't so squished
+# write in figure description somewhere that this was changed
+all_merged_unique$species <- gsub("Pseudarthrobacter_sp__NIBRBAC000502772", "Pseudarthrobacter_sp", all_merged_unique$species)
+top_TAX$species <- gsub("Pseudarthrobacter_sp__NIBRBAC000502772", "Pseudarthrobacter_sp", top_TAX$species)
+
+
 ### graphs
 
 for (myVar in myVars) {
@@ -376,11 +382,11 @@ for (myVar in myVars) {
   p <- ggplot(all_merged_imp3, aes(x = EC, y = species_freq)) + 
     geom_bar(stat = "identity") +
     theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.6)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.6)) +
     labs(x = "", y = "", title = myVar)
   p
-  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
-  #assign(paste0("bar_",myVar),p)
+  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  assign(paste0("bar_",myVar),p)
   
   # reorder ECs by importance
   all_merged_imp4 <- all_merged_imp2 %>% 
@@ -396,14 +402,16 @@ for (myVar in myVars) {
   all_merged_imp5$species <- reorder(all_merged_imp5$species, all_merged_imp5$mean_VIP_TAX)
   
   # create heatmaps
-  ggplot(all_merged_imp5, aes(x = EC, y = species, fill = ECs_per_species)) +
+  p2 <- ggplot(all_merged_imp5, aes(x = EC, y = species, fill = ECs_per_species)) +
     geom_tile() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6),
+          axis.text.y = element_text(size = 6),
+          legend.text = element_text(size = 8)) +
     scale_fill_binned(low = "white", high = "red", limits = c(0,10),
                       breaks = c(0,1,2,3,4,5,6,7,8,9,10)) +
     labs(x = "", y = "", title = myVar, fill = "Enzyme Copies")
-  #ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), device='png', dpi=600, height=4, width=6)
-  #assign(paste0("heatmap_",myVar),p)
+  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  assign(paste0("heatmap_",myVar),p2)
 }
 
 # create merged plot of species per EC
@@ -417,6 +425,14 @@ annotate_figure(p_bar_all, left = text_grob("Species Frequency", rot = 90, vjust
 ggsave("figures/species_per_enzyme/species_freq_per_ez.png", device='png', dpi=600, height=12, width=10)
 
 # create merged plot of heatmaps
+p_heatmap_all <- ggarrange(heatmap_ACE, heatmap_ActiveC, heatmap_AggStab,heatmap_Fe, heatmap_K, heatmap_Mg, 
+                         heatmap_Mn,heatmap_P, heatmap_pH, heatmap_Resp, heatmap_SOM,heatmap_WaterCap, 
+                         heatmap_Zn, ncol = 4, nrow = 4, common.legend = TRUE)
+p_heatmap_all
+
+annotate_figure(p_heatmap_all, left = text_grob("Top Species", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("Top Enzymes", size = 14))
+ggsave("figures/species_per_enzyme/ez_copies_per_species_heatmap.png", device='png', dpi=600, height=14, width=14)
 
 
 ```
