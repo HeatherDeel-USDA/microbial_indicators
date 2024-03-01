@@ -433,8 +433,6 @@ p_heatmap_all
 annotate_figure(p_heatmap_all, left = text_grob("Top Species", rot = 90, vjust = 1, size = 14),
                 bottom = text_grob("Top Enzymes", size = 14))
 ggsave("figures/species_per_enzyme/ez_copies_per_species_heatmap.png", device='png', dpi=600, height=14, width=14)
-
-
 ```
 
 ### Figure 3
@@ -508,6 +506,7 @@ ggsave(paste0("figures/EC_TAX_RA_tSNE.png"), device='png', dpi=600, height=4, wi
 ### Figure 4 and Figure 5
 # Feature importance distributions of indicators with all enzyme models
 # separating by positively (Figure 4) and negatively (Figure 5) correlated enzymes
+######## commenting out gibbs stuff for now
 ```{r}
 myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
@@ -521,10 +520,10 @@ for (myVar in myVars) {
   varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
   varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
   
-  gibbs <- read.csv("picrust2_files/GIBBs.EC.numbers.csv", header = TRUE)
+ # gibbs <- read.csv("picrust2_files/GIBBs.EC.numbers.csv", header = TRUE)
 
  gDF <- varimps_full %>%
-    left_join(gibbs, by=c("Predictor"="EC")) %>% 
+    #left_join(gibbs, by=c("Predictor"="EC")) %>% 
     mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
 
  # calculate positive and negative correlations between enzymes and indicators
@@ -583,8 +582,8 @@ for (myVar in myVars) {
    summarise(mean_VIP = mean(VIP)) %>% 
    mutate(indicator = myVar)
 
- write.table(gDF2.grouped, "machine_learning/16S_EC/top_ECs.csv", sep = ",",
-              append = TRUE, row.names = FALSE, col.names = FALSE)
+ #write.table(gDF2.grouped, "machine_learning/16S_EC/top_ECs.csv", sep = ",",
+              #append = TRUE, row.names = FALSE, col.names = FALSE)
 
  # format ec.indic but separate by positive and negative correlation values
  ec.indic.pos <- ec.indic %>% 
@@ -616,15 +615,16 @@ for (myVar in myVars) {
   gDF.neg <- gDF.neg %>%
     filter(Predictor %in% temp.neg$Predictor)
   
-  colors <- c("Biocontrol" = "#1F77B4FF",
-              "C cycling" = "#FF7F0EFF",
-              "C/N cycling" = "#2CA02CFF",
-              "N cycling" = "#D62728FF",
-              "P cycling" = "#9467BDFF",
-              "S cycling" = "#8C564BFF",
-              "Stress" = "#E377C2FF",
-              "Siderophore" = "#7F7F7FFF",
-              "NA" = "white")
+  # colors for gibbs categories
+  # colors <- c("Biocontrol" = "#1F77B4FF",
+  #             "C cycling" = "#FF7F0EFF",
+  #             "C/N cycling" = "#2CA02CFF",
+  #             "N cycling" = "#D62728FF",
+  #             "P cycling" = "#9467BDFF",
+  #             "S cycling" = "#8C564BFF",
+  #             "Stress" = "#E377C2FF",
+  #             "Siderophore" = "#7F7F7FFF",
+  #             "NA" = "white")
   
   # changing myVar format for cleaner plot titles
   if (myVar == 'resp'){
@@ -667,69 +667,65 @@ for (myVar in myVars) {
   means <- aggregate(VIP ~ Predictor, gDF.pos, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p.pos <- ggplot(gDF.pos, aes(x=Predictor, y=VIP, fill=Category)) +
-    scale_fill_manual(values=colors, na.value="white") +
+  p.pos <- ggplot(gDF.pos, aes(x=Predictor, y=VIP)) +
+    #scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
           legend.position = "none", plot.title = element_text(size = 12)) +
     labs(x="", y="", title = myVar)
   p.pos
-  #assign(paste0(myVar,"_pos"),p.pos)
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  assign(paste0(myVar,"_pos"),p.pos)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
   
   # negative correlation graph
   means <- aggregate(VIP ~ Predictor, gDF.neg, median)
   means$Category <- 'Other'
   means$VIP <- round(means$VIP, 3)
-  p.neg <- ggplot(gDF.neg, aes(x=Predictor, y=VIP, fill=Category)) +
-    scale_fill_manual(values=colors, na.value="white") +
+  p.neg <- ggplot(gDF.neg, aes(x=Predictor, y=VIP)) +
+    #scale_fill_manual(values=colors, na.value="white") +
     geom_boxplot(alpha = 1, fatten = 1) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
           legend.position = "none", plot.title = element_text(size = 12)) +
     labs(x="", y="", title = myVar)
   p.neg
-  #assign(paste0(myVar,"_neg"),p.neg)
-    #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
+  assign(paste0(myVar,"_neg"),p.neg)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # create legend of all GIBBs colors to add to merged plot
-p_legend <- ggplot(gibbs, aes(x = EC, fill = Category)) +
-  scale_fill_manual(values = colors) +
-  geom_boxplot()
-p_legend
-p_legend2 <- get_legend(p_legend)
-p_legend3 <- as_ggplot(p_legend2)
-p_legend3
+# p_legend <- ggplot(gibbs, aes(x = EC, fill = Category)) +
+#   scale_fill_manual(values = colors) +
+#   geom_boxplot()
+# p_legend
+# p_legend2 <- get_legend(p_legend)
+# p_legend3 <- as_ggplot(p_legend2)
+# p_legend3
 
 # positive correlations graph
 p_merged_pos <- ggarrange(ACE_pos, ActiveC_pos, AggStab_pos, 
-                                Fe_pos, K_pos, Mg_pos, Mn_pos, 
-                                P_pos, pH_pos, Resp_pos, 
-                                SOM_pos, WaterCap_pos, Zn_pos,
-                                p_legend3, nrow = 2, ncol = 7)
+                          Fe_pos, K_pos, Mg_pos, Mn_pos, 
+                          P_pos, pH_pos, Resp_pos, 
+                          SOM_pos, WaterCap_pos, Zn_pos, 
+                          nrow = 2, ncol = 7)
 p_merged_pos
 
-annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Positively Correlated Model Predictors", size = 14),
-                top = text_grob("All Enzymes", size = 14))
+annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
 
-#ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
+ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
 p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg, 
-                                Fe_neg, K_neg, Mg_neg, Mn_neg, 
-                                P_neg, pH_neg, Resp_neg, 
-                                SOM_neg, WaterCap_neg, Zn_neg,
-                                p_legend3, nrow = 2, ncol = 7)
+                          Fe_neg, K_neg, Mg_neg, Mn_neg, 
+                          P_neg, pH_neg, Resp_neg, 
+                          SOM_neg, WaterCap_neg, Zn_neg,
+                          nrow = 2, ncol = 7)
 p_merged_neg
 
-annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14),
-                bottom = text_grob("Negatively Correlated Model Predictors", size = 14),
-                top = text_grob("All Enzymes", size = 14))
+annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
 
-#ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
+ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 
