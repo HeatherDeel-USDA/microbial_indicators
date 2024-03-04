@@ -88,8 +88,8 @@ top_ECs_unique <- top_ECs %>% # create list without duplicates
 
 ### import important taxa
 # need to import varimps first
-myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
-
+# myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
+# 
 # for (myVar in myVars) {
 #      filenames <- list.files(paste0("machine_learning/16S_TAX/",myVar,"_model_results_RA_TAX/"), pattern = paste0(myVar,"_RA_TAX_varimp*"), full.names = TRUE)
 #   varimps <- lapply(filenames, read.csv, header = FALSE)
@@ -120,12 +120,12 @@ myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'ac
 #   write.table(gDF.grouped, "machine_learning/16S_TAX/top_TAX.csv", sep = ",",
 #               append = TRUE, row.names = FALSE, col.names = FALSE)
 # }
-
-# create list without duplicates
-top_TAX <- read.csv("machine_learning/16S_TAX/top_TAX.csv", header = FALSE)
-colnames(top_TAX) <- c("species","mean_VIP","indicator")
-top_TAX_unique <- top_TAX %>% 
-  distinct(species)
+# 
+# # create list without duplicates
+# top_TAX <- read.csv("machine_learning/16S_TAX/top_TAX.csv", header = FALSE)
+# colnames(top_TAX) <- c("species","mean_VIP","indicator")
+# top_TAX_unique <- top_TAX %>% 
+#   distinct(species)
 
 ### import picrust2 copy number data for each data set
 ## hops 2018
@@ -309,7 +309,7 @@ top_TAX$species <- gsub("Pseudarthrobacter_sp__NIBRBAC000502772", "Pseudarthroba
 
 
 ### graphs
-
+myVars <- c("ace", "activeC", "agg_stab", "fe", "k", "mg", "mn", "p", "ph", "resp", "SOM", "water_cap", "zn")
 for (myVar in myVars) {
   top_ECs_indic <- top_ECs %>% # don't need to use unique list since it's per indicator (and I can keep mean_VIP)
     filter(indicator == myVar)
@@ -385,7 +385,7 @@ for (myVar in myVars) {
     theme(axis.text.x = element_text(angle = 90, vjust = 0.6)) +
     labs(x = "", y = "", title = myVar)
   p
-  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  ggsave(paste0("../figures/species_per_enzyme/species_freq_per_ez_",myVar,".png"), device='png', dpi=600, height=4, width=6)
   assign(paste0("bar_",myVar),p)
   
   # reorder ECs by importance
@@ -402,15 +402,18 @@ for (myVar in myVars) {
   all_merged_imp5$species <- reorder(all_merged_imp5$species, all_merged_imp5$mean_VIP_TAX)
   
   # create heatmaps
+  all_merged_imp5[all_merged_imp5$ECs_per_species == 0,"ECs_per_species"] <- NA
+  all_merged_imp5 <- all_merged_imp5[all_merged_imp5$indicator.x == tolower(myVar),]
   p2 <- ggplot(all_merged_imp5, aes(x = EC, y = species, fill = ECs_per_species)) +
-    geom_tile() +
+    geom_tile(color='grey20') +
+    geom_text(aes(label=round(ECs_per_species,3))) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6),
           axis.text.y = element_text(size = 6),
           legend.text = element_text(size = 8)) +
     scale_fill_binned(low = "white", high = "red", limits = c(0,10),
-                      breaks = c(0,1,2,3,4,5,6,7,8,9,10)) +
+                      breaks = c(1,2,3,4,5,6,7,8,9,10)) +
     labs(x = "", y = "", title = myVar, fill = "Enzyme Copies")
-  ggsave(paste0("figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), device='png', dpi=600, height=4, width=6)
+  ggsave(paste0("../figures/species_per_enzyme/species_freq_per_ez_heatmap_",myVar,".png"), device='png', dpi=600, height=4, width=6)
   assign(paste0("heatmap_",myVar),p2)
 }
 
@@ -422,7 +425,7 @@ p_bar_all
 
 annotate_figure(p_bar_all, left = text_grob("Species Frequency", rot = 90, vjust = 1, size = 14),
                 bottom = text_grob("Top Enzymes", size = 14))
-ggsave("figures/species_per_enzyme/species_freq_per_ez.png", device='png', dpi=600, height=12, width=10)
+ggsave("../figures/species_per_enzyme/species_freq_per_ez.png", device='png', dpi=600, height=12, width=10)
 
 # create merged plot of heatmaps
 p_heatmap_all <- ggarrange(heatmap_ACE, heatmap_ActiveC, heatmap_AggStab,heatmap_Fe, heatmap_K, heatmap_Mg, 
@@ -432,7 +435,7 @@ p_heatmap_all
 
 annotate_figure(p_heatmap_all, left = text_grob("Top Species", rot = 90, vjust = 1, size = 14),
                 bottom = text_grob("Top Enzymes", size = 14))
-ggsave("figures/species_per_enzyme/ez_copies_per_species_heatmap.png", device='png', dpi=600, height=14, width=14)
+ggsave("../figures/species_per_enzyme/ez_copies_per_species_heatmap.png", device='png', dpi=600, height=14, width=14)
 ```
 
 ### Figure 3
