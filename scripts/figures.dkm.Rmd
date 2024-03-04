@@ -608,7 +608,7 @@ top_TAX <- top_TAX %>%
 
 top_TAX <- top_TAX %>%
   left_join(picrust.select, by=c("study", "OTU_ID")) %>%
-  drop_na() %>% # if not present in a study values will be NA, so remove
+  drop_na() %>% # if not present in a study values will be NA, so remove ### Q: a species has to be present in all 4 datasets in order to be included? This does exclude some top 10 important species 
   select(-study, -OTU_ID, -tax_ID, -species)
 
 top_TAX <- top_TAX %>%

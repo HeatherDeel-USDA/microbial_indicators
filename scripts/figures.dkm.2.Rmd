@@ -642,27 +642,12 @@ l
 ```{r}
 library(jsonlite)
 # download json from 'https://www.kegg.jp/kegg-bin/get_htext?ko00001.keg'
-json_data <- jsonlite::fromJSON("ko00001.json", simplifyVector = TRUE, simplifyDataFrame = TRUE)
+json_data <- jsonlite::fromJSON("ko00001.json")
 
-json_data <- json_data %>% as_tibble()
-
-flattened_json_data <- json_data %>% 
-  mutate(across(where(is.list), as.character))
-flattened_json_data
+listviewer::jsonedit(json_data, height = "800px", mode = "view")
 
 
-
-
-json_file <- lapply(raw_json, function(x) {
-  x[sapply(x, is.null)] <- NA
-  unlist(x)
-})
-
-df<-as.data.frame(do.call("cbind", json_file))
-
-as_tibble(df)
-
-write.csv(df, 'pathways.csv')
+write.csv(json_data, 'pathways.csv')
 ```
 
 
