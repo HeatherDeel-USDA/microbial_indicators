@@ -74,233 +74,229 @@ p1
 ### Figure 2
 # functional redundancy in taxonomic models
 # commented out sections only need to be run once
-############ to do:
-####### redo heatmaps with ggplot2 so I can merge
-####### make color breaks consistent in the heatmaps
-
 ```{r}
 ### import important ECs
-top_ECs <- read.csv("machine_learning/16S_EC/top_ECs.csv", header = FALSE)
+top_ECs <- read.csv("machine_learning/16S_EC/top_ECs_HLD.csv", header = FALSE)
 colnames(top_ECs) <- c("EC","mean_VIP","indicator")
 top_ECs$EC <- gsub("EC:", "EC.", top_ECs$EC) 
 top_ECs_unique <- top_ECs %>% # create list without duplicates
   distinct(EC)
 
 ### import important taxa
-# need to import varimps first
-# myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
-# 
-# for (myVar in myVars) {
-#      filenames <- list.files(paste0("machine_learning/16S_TAX/",myVar,"_model_results_RA_TAX/"), pattern = paste0(myVar,"_RA_TAX_varimp*"), full.names = TRUE)
-#   varimps <- lapply(filenames, read.csv, header = FALSE)
-#   varimps_full <- varimps %>%
-#     reduce(full_join)
-# 
-#  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-# 
-#  gDF <- varimps_full %>%
-#    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
-# 
-#  gDF <- gDF %>%
-#    filter(gDF$Predictor != "ClimateZ" & gDF$Predictor != "clay" & gDF$Predictor != "DNA")
-# 
-#  temp <- gDF %>% group_by(Predictor) %>%
-#     summarise(Var = median(VIP)) %>%
-#     top_n(10, Var)
-# 
-#   gDF <- gDF %>%
-#     filter(Predictor %in% temp$Predictor)
-# 
-#   # write important variables to a csv file
-#   gDF.grouped <- gDF %>%
-#     group_by(Predictor) %>%
-#     summarise(mean_VIP = mean(VIP)) %>%
-#     mutate(indicator = myVar)
-# 
-#   write.table(gDF.grouped, "machine_learning/16S_TAX/top_TAX.csv", sep = ",",
-#               append = TRUE, row.names = FALSE, col.names = FALSE)
-# }
-# 
-# # create list without duplicates
-# top_TAX <- read.csv("machine_learning/16S_TAX/top_TAX.csv", header = FALSE)
-# colnames(top_TAX) <- c("species","mean_VIP","indicator")
-# top_TAX_unique <- top_TAX %>% 
-#   distinct(species)
+#need to import varimps first
+myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
+
+for (myVar in myVars) {
+     filenames <- list.files(paste0("machine_learning/16S_TAX/",myVar,"_model_results_RA_TAX/"), pattern = paste0(myVar,"_RA_TAX_varimp*"), full.names = TRUE)
+  varimps <- lapply(filenames, read.csv, header = FALSE)
+  varimps_full <- varimps %>%
+    reduce(full_join)
+
+ names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+
+ gDF <- varimps_full %>%
+   mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+
+ gDF <- gDF %>%
+   filter(gDF$Predictor != "ClimateZ" & gDF$Predictor != "clay" & gDF$Predictor != "DNA")
+
+ temp <- gDF %>% group_by(Predictor) %>%
+    summarise(Var = median(VIP)) %>%
+    top_n(10, Var)
+
+  gDF <- gDF %>%
+    filter(Predictor %in% temp$Predictor)
+
+  # write important variables to a csv file
+  gDF.grouped <- gDF %>%
+    group_by(Predictor) %>%
+    summarise(mean_VIP = mean(VIP)) %>%
+    mutate(indicator = myVar)
+
+  write.table(gDF.grouped, "machine_learning/16S_TAX/top_TAX_HLD.csv", sep = ",",
+              append = TRUE, row.names = FALSE, col.names = FALSE)
+}
+
+# create list without duplicates
+top_TAX <- read.csv("machine_learning/16S_TAX/top_TAX_HLD.csv", header = FALSE)
+colnames(top_TAX) <- c("species","mean_VIP","indicator")
+top_TAX_unique <- top_TAX %>%
+  distinct(species)
 
 ### import picrust2 copy number data for each data set
-## hops 2018
-# hops2018 <- read_tsv("picrust2_files/Hops.2018/EC_predicted_and_nsti.tsv")
-# hops2018$sequence <- gsub("OTU", "", hops2018$sequence)  # get rid of "OTU" in taxon column
-# colnames(hops2018)[1] <- "OTU_ID"
-# 
-# # associate OTU IDs with species names
-# hops2018_otuid <- read.delim("16S_dada2_output/Hops.2018.taxonomy.otuid.csv",
-#                               sep = ",")
-# 
-# hops2018_otuid$OTU_ID <- as.character(hops2018_otuid$OTU_ID)
-# hops2018_sp <- hops2018 %>%
-#   left_join(hops2018_otuid, by = "OTU_ID")
-# hops2018_sp <- hops2018_sp %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# 
-# # get rid of unclassified species
-# hops2018_sp <- hops2018_sp[!hops2018_sp$species == "",]
-# 
-# # split taxonomy to get just species
-# hops2018_sp2 <- separate_wider_delim(hops2018_sp, cols = species, delim = ";",
-#                                      names = c("kingdom", "phylum", "class",
-#                                                "order", "family", "genus",
-#                                                "species"))
-# 
-# # filter to only species and replace spaces with _ and . with _
-# # also format some specific species so they are identical to that in top_TAX_unique list (for filtering later)
-# hops2018_sp3 <- hops2018_sp2 %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# hops2018_sp3$species <- gsub(" ", "_", hops2018_sp3$species)
-# hops2018_sp3$species <- gsub("\\.", "_", hops2018_sp3$species)
-# hops2018_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", hops2018_sp3$species)
-# hops2018_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", hops2018_sp3$species)
-# hops2018_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", hops2018_sp3$species)
-# hops2018_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", hops2018_sp3$species)
-# 
-# # filter by important ECs and important species
-# hops2018_sp4 <- hops2018_sp3 %>% 
-#   group_by(species) %>% 
-#   summarise(across(everything(), mean))
-# hops2018_sp4 <- column_to_rownames(hops2018_sp4, var = "species")
-# hops2018_sp5 <- hops2018_sp4[,names(hops2018_sp4) %in% top_ECs_unique$EC]
-# hops2018_sp5 <- rownames_to_column(hops2018_sp5, "species")
-# hops2018_sp6 <- hops2018_sp5[hops2018_sp5$species %in% top_TAX_unique$species,]
-# 
-# # convert to long format for merging with other data sets
-# hops2018_sp6_long <- hops2018_sp6 %>%
-#   pivot_longer(names_to = "EC",
-#                values_to = "ECs_per_species",
-#                cols = starts_with("EC."))
-# 
-# ## hops ARS
-# hopsARS <- read.delim("picrust2_files/Hops.ARS/EC_predicted_and_nsti.tsv.gz", sep = "\t")
-# hopsARS$sequence <- gsub("OTU", "", hopsARS$sequence)
-# colnames(hopsARS)[1] <- "OTU_ID"
-# hopsARS_otuid <- read.delim("16S_dada2_output/Hops.ARS.taxonomy.otuid.csv",
-#                               sep = ",")
-# 
-# hopsARS_otuid$OTU_ID <- as.character(hopsARS_otuid$OTU_ID)
-# hopsARS_sp <- hopsARS %>%
-#   left_join(hopsARS_otuid, by = "OTU_ID")
-# hopsARS_sp <- hopsARS_sp %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# hopsARS_sp <- hopsARS_sp[!hopsARS_sp$species == "",]
-# hopsARS_sp2 <- separate_wider_delim(hopsARS_sp, cols = species, delim = ";",
-#                                      names = c("kingdom", "phylum", "class",
-#                                                "order", "family", "genus",
-#                                                "species"))
-# hopsARS_sp3 <- hopsARS_sp2 %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# hopsARS_sp3$species <- gsub(" ", "_", hopsARS_sp3$species)
-# hopsARS_sp3$species <- gsub("\\.", "_", hopsARS_sp3$species)
-# hopsARS_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", hopsARS_sp3$species)
-# hopsARS_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", hopsARS_sp3$species)
-# hopsARS_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", hopsARS_sp3$species)
-# hopsARS_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", hopsARS_sp3$species)
-# hopsARS_sp4 <- hopsARS_sp3 %>% 
-#   group_by(species) %>% 
-#   summarise(across(everything(), mean))
-# hopsARS_sp4 <- column_to_rownames(hopsARS_sp4, var = "species")
-# hopsARS_sp5 <- hopsARS_sp4[,names(hopsARS_sp4) %in% top_ECs_unique$EC]
-# hopsARS_sp5 <- rownames_to_column(hopsARS_sp5, "species")
-# hopsARS_sp6 <- hopsARS_sp5[hopsARS_sp5$species %in% top_TAX_unique$species,]
-# hopsARS_sp6_long <- hopsARS_sp6 %>%
-#   pivot_longer(names_to = "EC",
-#                values_to = "ECs_per_species",
-#                cols = starts_with("EC."))
-# 
-# ## NRCS
-# NRCS <- read.delim("picrust2_files/NRCS/EC_predicted_and_nsti.tsv.gz", sep = "\t")
-# NRCS$sequence <- gsub("OTU", "", NRCS$sequence)
-# colnames(NRCS)[1] <- "OTU_ID"
-# NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
-#                               sep = ",")
-# 
-# NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
-# NRCS_sp <- NRCS %>%
-#   left_join(NRCS_otuid, by = "OTU_ID")
-# NRCS_sp <- NRCS_sp %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# NRCS_sp <- NRCS_sp[!NRCS_sp$species == "",]
-# NRCS_sp2 <- separate_wider_delim(NRCS_sp, cols = species, delim = ";",
-#                                      names = c("kingdom", "phylum", "class",
-#                                                "order", "family", "genus",
-#                                                "species"))
-# NRCS_sp3 <- NRCS_sp2 %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# NRCS_sp3$species <- gsub(" ", "_", NRCS_sp3$species)
-# NRCS_sp3$species <- gsub("\\.", "_", NRCS_sp3$species)
-# NRCS_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", NRCS_sp3$species)
-# NRCS_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", NRCS_sp3$species)
-# NRCS_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", NRCS_sp3$species)
-# NRCS_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", NRCS_sp3$species)
-# NRCS_sp4 <- NRCS_sp3 %>% 
-#   group_by(species) %>% 
-#   summarise(across(everything(), mean))
-# NRCS_sp4 <- column_to_rownames(NRCS_sp4, var = "species")
-# NRCS_sp5 <- NRCS_sp4[,names(NRCS_sp4) %in% top_ECs_unique$EC]
-# NRCS_sp5 <- rownames_to_column(NRCS_sp5, "species")
-# NRCS_sp6 <- NRCS_sp5[NRCS_sp5$species %in% top_TAX_unique$species,]
-# NRCS_sp6_long <- NRCS_sp6 %>%
-#   pivot_longer(names_to = "EC",
-#                values_to = "ECs_per_species",
-#                cols = starts_with("EC."))
-# 
-# ## rangeland
-# rangeland <- read.delim("picrust2_files/Rangeland/EC_predicted_and_nsti.tsv.gz", sep = "\t")
-# rangeland$sequence <- gsub("OTU", "", rangeland$sequence)  # get rid of "OTU" in taxon column
-# colnames(rangeland)[1] <- "OTU_ID"
-# rangeland_otuid <- read.delim("16S_dada2_output/Rangeland.taxonomy.otuid.csv",
-#                               sep = ",")
-# 
-# rangeland_otuid$OTU_ID <- as.character(rangeland_otuid$OTU_ID)
-# rangeland_sp <- rangeland %>%
-#   left_join(rangeland_otuid, by = "OTU_ID")
-# rangeland_sp <- rangeland_sp %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# rangeland_sp <- rangeland_sp[!rangeland_sp$species == "",]
-# rangeland_sp2 <- separate_wider_delim(rangeland_sp, cols = species, delim = ";",
-#                                      names = c("kingdom", "phylum", "class",
-#                                                "order", "family", "genus",
-#                                                "species"))
-# rangeland_sp3 <- rangeland_sp2 %>%
-#   select(starts_with("EC.") | starts_with("species"))
-# rangeland_sp3$species <- gsub(" ", "_", rangeland_sp3$species)
-# rangeland_sp3$species <- gsub("\\.", "_", rangeland_sp3$species)
-# rangeland_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", rangeland_sp3$species)
-# rangeland_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", rangeland_sp3$species)
-# rangeland_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", rangeland_sp3$species)
-# rangeland_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", rangeland_sp3$species)
-# rangeland_sp4 <- rangeland_sp3 %>% 
-#   group_by(species) %>% 
-#   summarise(across(everything(), mean))
-# rangeland_sp4 <- column_to_rownames(rangeland_sp4, var = "species")
-# rangeland_sp5 <- rangeland_sp4[,names(rangeland_sp4) %in% top_ECs_unique$EC]
-# rangeland_sp5 <- rownames_to_column(rangeland_sp5, "species")
-# rangeland_sp6 <- rangeland_sp5[rangeland_sp5$species %in% top_TAX_unique$species,]
-# rangeland_sp6_long <- rangeland_sp6 %>%
-#   pivot_longer(names_to = "EC",
-#                values_to = "ECs_per_species",
-#                cols = starts_with("EC."))
-# 
-# ### merge, get rid of duplicates, and save
-# all_merged <- rbind(hops2018_sp6_long, hopsARS_sp6_long, NRCS_sp6_long, rangeland_sp6_long)
-# all_merged_unique <- all_merged %>%
-#   distinct()
-# 
-# # check that all_merged_unique includes all of the top species
-# length(unique(all_merged_unique$species))
-# length(top_TAX_unique$species)
-# # both include 93 species
-# 
-# saveRDS(all_merged_unique, "picrust2_files/Imp_EC_copies_per_imp_species.RDS")
-all_merged_unique <- readRDS("picrust2_files/Imp_EC_copies_per_imp_species.RDS")
+# hops 2018
+hops2018 <- read_tsv("picrust2_files/Hops.2018/EC_predicted_and_nsti.tsv")
+hops2018$sequence <- gsub("OTU", "", hops2018$sequence)  # get rid of "OTU" in taxon column
+colnames(hops2018)[1] <- "OTU_ID"
+
+# associate OTU IDs with species names
+hops2018_otuid <- read.delim("16S_dada2_output/Hops.2018.taxonomy.otuid.csv",
+                              sep = ",")
+
+hops2018_otuid$OTU_ID <- as.character(hops2018_otuid$OTU_ID)
+hops2018_sp <- hops2018 %>%
+  left_join(hops2018_otuid, by = "OTU_ID")
+hops2018_sp <- hops2018_sp %>%
+  select(starts_with("EC.") | starts_with("species"))
+
+# get rid of unclassified species
+hops2018_sp <- hops2018_sp[!hops2018_sp$species == "",]
+
+# split taxonomy to get just species
+hops2018_sp2 <- separate_wider_delim(hops2018_sp, cols = species, delim = ";",
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+
+# filter to only species and replace spaces with _ and . with _
+# also format some specific species so they are identical to that in top_TAX_unique list (for filtering later)
+hops2018_sp3 <- hops2018_sp2 %>%
+  select(starts_with("EC.") | starts_with("species"))
+hops2018_sp3$species <- gsub(" ", "_", hops2018_sp3$species)
+hops2018_sp3$species <- gsub("\\.", "_", hops2018_sp3$species)
+hops2018_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", hops2018_sp3$species)
+hops2018_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", hops2018_sp3$species)
+hops2018_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", hops2018_sp3$species)
+hops2018_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", hops2018_sp3$species)
+
+# filter by important ECs and important species
+hops2018_sp4 <- hops2018_sp3 %>%
+  group_by(species) %>%
+  summarise(across(everything(), mean))
+hops2018_sp4 <- column_to_rownames(hops2018_sp4, var = "species")
+hops2018_sp5 <- hops2018_sp4[,names(hops2018_sp4) %in% top_ECs_unique$EC]
+hops2018_sp5 <- rownames_to_column(hops2018_sp5, "species")
+hops2018_sp6 <- hops2018_sp5[hops2018_sp5$species %in% top_TAX_unique$species,]
+
+# convert to long format for merging with other data sets
+hops2018_sp6_long <- hops2018_sp6 %>%
+  pivot_longer(names_to = "EC",
+               values_to = "ECs_per_species",
+               cols = starts_with("EC."))
+
+## hops ARS
+hopsARS <- read.delim("picrust2_files/Hops.ARS/EC_predicted_and_nsti.tsv.gz", sep = "\t")
+hopsARS$sequence <- gsub("OTU", "", hopsARS$sequence)
+colnames(hopsARS)[1] <- "OTU_ID"
+hopsARS_otuid <- read.delim("16S_dada2_output/Hops.ARS.taxonomy.otuid.csv",
+                              sep = ",")
+
+hopsARS_otuid$OTU_ID <- as.character(hopsARS_otuid$OTU_ID)
+hopsARS_sp <- hopsARS %>%
+  left_join(hopsARS_otuid, by = "OTU_ID")
+hopsARS_sp <- hopsARS_sp %>%
+  select(starts_with("EC.") | starts_with("species"))
+hopsARS_sp <- hopsARS_sp[!hopsARS_sp$species == "",]
+hopsARS_sp2 <- separate_wider_delim(hopsARS_sp, cols = species, delim = ";",
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+hopsARS_sp3 <- hopsARS_sp2 %>%
+  select(starts_with("EC.") | starts_with("species"))
+hopsARS_sp3$species <- gsub(" ", "_", hopsARS_sp3$species)
+hopsARS_sp3$species <- gsub("\\.", "_", hopsARS_sp3$species)
+hopsARS_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", hopsARS_sp3$species)
+hopsARS_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", hopsARS_sp3$species)
+hopsARS_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", hopsARS_sp3$species)
+hopsARS_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", hopsARS_sp3$species)
+hopsARS_sp4 <- hopsARS_sp3 %>%
+  group_by(species) %>%
+  summarise(across(everything(), mean))
+hopsARS_sp4 <- column_to_rownames(hopsARS_sp4, var = "species")
+hopsARS_sp5 <- hopsARS_sp4[,names(hopsARS_sp4) %in% top_ECs_unique$EC]
+hopsARS_sp5 <- rownames_to_column(hopsARS_sp5, "species")
+hopsARS_sp6 <- hopsARS_sp5[hopsARS_sp5$species %in% top_TAX_unique$species,]
+hopsARS_sp6_long <- hopsARS_sp6 %>%
+  pivot_longer(names_to = "EC",
+               values_to = "ECs_per_species",
+               cols = starts_with("EC."))
+
+## NRCS
+NRCS <- read.delim("picrust2_files/NRCS/EC_predicted_and_nsti.tsv.gz", sep = "\t")
+NRCS$sequence <- gsub("OTU", "", NRCS$sequence)
+colnames(NRCS)[1] <- "OTU_ID"
+NRCS_otuid <- read.delim("16S_dada2_output/NRCS.taxonomy.otuid.csv",
+                              sep = ",")
+
+NRCS_otuid$OTU_ID <- as.character(NRCS_otuid$OTU_ID)
+NRCS_sp <- NRCS %>%
+  left_join(NRCS_otuid, by = "OTU_ID")
+NRCS_sp <- NRCS_sp %>%
+  select(starts_with("EC.") | starts_with("species"))
+NRCS_sp <- NRCS_sp[!NRCS_sp$species == "",]
+NRCS_sp2 <- separate_wider_delim(NRCS_sp, cols = species, delim = ";",
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+NRCS_sp3 <- NRCS_sp2 %>%
+  select(starts_with("EC.") | starts_with("species"))
+NRCS_sp3$species <- gsub(" ", "_", NRCS_sp3$species)
+NRCS_sp3$species <- gsub("\\.", "_", NRCS_sp3$species)
+NRCS_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", NRCS_sp3$species)
+NRCS_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", NRCS_sp3$species)
+NRCS_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", NRCS_sp3$species)
+NRCS_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", NRCS_sp3$species)
+NRCS_sp4 <- NRCS_sp3 %>%
+  group_by(species) %>%
+  summarise(across(everything(), mean))
+NRCS_sp4 <- column_to_rownames(NRCS_sp4, var = "species")
+NRCS_sp5 <- NRCS_sp4[,names(NRCS_sp4) %in% top_ECs_unique$EC]
+NRCS_sp5 <- rownames_to_column(NRCS_sp5, "species")
+NRCS_sp6 <- NRCS_sp5[NRCS_sp5$species %in% top_TAX_unique$species,]
+NRCS_sp6_long <- NRCS_sp6 %>%
+  pivot_longer(names_to = "EC",
+               values_to = "ECs_per_species",
+               cols = starts_with("EC."))
+
+## rangeland
+rangeland <- read.delim("picrust2_files/Rangeland/EC_predicted_and_nsti.tsv.gz", sep = "\t")
+rangeland$sequence <- gsub("OTU", "", rangeland$sequence)  # get rid of "OTU" in taxon column
+colnames(rangeland)[1] <- "OTU_ID"
+rangeland_otuid <- read.delim("16S_dada2_output/Rangeland.taxonomy.otuid.csv",
+                              sep = ",")
+
+rangeland_otuid$OTU_ID <- as.character(rangeland_otuid$OTU_ID)
+rangeland_sp <- rangeland %>%
+  left_join(rangeland_otuid, by = "OTU_ID")
+rangeland_sp <- rangeland_sp %>%
+  select(starts_with("EC.") | starts_with("species"))
+rangeland_sp <- rangeland_sp[!rangeland_sp$species == "",]
+rangeland_sp2 <- separate_wider_delim(rangeland_sp, cols = species, delim = ";",
+                                     names = c("kingdom", "phylum", "class",
+                                               "order", "family", "genus",
+                                               "species"))
+rangeland_sp3 <- rangeland_sp2 %>%
+  select(starts_with("EC.") | starts_with("species"))
+rangeland_sp3$species <- gsub(" ", "_", rangeland_sp3$species)
+rangeland_sp3$species <- gsub("\\.", "_", rangeland_sp3$species)
+rangeland_sp3$species <- gsub("Bacillus_sp__X1\\(2014\\)", "Bacillus_sp__X1_2014_", rangeland_sp3$species)
+rangeland_sp3$species <- gsub("Bacillus_sp__HBCD-sjtu", "Bacillus_sp__HBCD_sjtu", rangeland_sp3$species)
+rangeland_sp3$species <- gsub("Burkholderiales_bacterium_GJ-E10", "Burkholderiales_bacterium_GJ_E10", rangeland_sp3$species)
+rangeland_sp3$species <- gsub("Rhodoplanes_sp__Z2-YC6860", "Rhodoplanes_sp__Z2_YC6860", rangeland_sp3$species)
+rangeland_sp4 <- rangeland_sp3 %>%
+  group_by(species) %>%
+  summarise(across(everything(), mean))
+rangeland_sp4 <- column_to_rownames(rangeland_sp4, var = "species")
+rangeland_sp5 <- rangeland_sp4[,names(rangeland_sp4) %in% top_ECs_unique$EC]
+rangeland_sp5 <- rownames_to_column(rangeland_sp5, "species")
+rangeland_sp6 <- rangeland_sp5[rangeland_sp5$species %in% top_TAX_unique$species,]
+rangeland_sp6_long <- rangeland_sp6 %>%
+  pivot_longer(names_to = "EC",
+               values_to = "ECs_per_species",
+               cols = starts_with("EC."))
+
+### merge, get rid of duplicates, and save
+all_merged <- rbind(hops2018_sp6_long, hopsARS_sp6_long, NRCS_sp6_long, rangeland_sp6_long)
+all_merged_unique <- all_merged %>%
+  distinct()
+
+# check that all_merged_unique includes all of the top species
+length(unique(all_merged_unique$species))
+length(top_TAX_unique$species)
+# both include 93 species
+
+saveRDS(all_merged_unique, "picrust2_files/Imp_EC_copies_per_imp_species_HLD.RDS")
+all_merged_unique <- readRDS("picrust2_files/Imp_EC_copies_per_imp_species_HLD.RDS")
 
 # shorten length of Pseudarthrobacter_sp__NIBRBAC000502772 so the plots aren't so squished
 # write in figure description somewhere that this was changed
@@ -585,8 +581,8 @@ for (myVar in myVars) {
    summarise(mean_VIP = mean(VIP)) %>% 
    mutate(indicator = myVar)
 
- #write.table(gDF2.grouped, "machine_learning/16S_EC/top_ECs.csv", sep = ",",
-              #append = TRUE, row.names = FALSE, col.names = FALSE)
+ write.table(gDF2.grouped, "machine_learning/16S_EC/top_ECs_HLD.csv", sep = ",",
+              append = TRUE, row.names = FALSE, col.names = FALSE)
 
  # format ec.indic but separate by positive and negative correlation values
  ec.indic.pos <- ec.indic %>% 
@@ -679,7 +675,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.pos
   assign(paste0(myVar,"_pos"),p.pos)
-  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
   
   # negative correlation graph
   means <- aggregate(VIP ~ Predictor, gDF.neg, median)
@@ -694,7 +690,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.neg
   assign(paste0(myVar,"_neg"),p.neg)
-  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
+  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # create legend of all GIBBs colors to add to merged plot
@@ -716,7 +712,7 @@ p_merged_pos
 
 annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
 
-ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
+#ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
 p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg, 
@@ -728,7 +724,7 @@ p_merged_neg
 
 annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
 
-ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
+#ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 

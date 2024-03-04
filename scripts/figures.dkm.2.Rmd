@@ -640,14 +640,16 @@ l
 ```
 
 ```{r}
-library(jsonlite)
+library(data.tree)
 # download json from 'https://www.kegg.jp/kegg-bin/get_htext?ko00001.keg'
-json_data <- jsonlite::fromJSON("ko00001.json")
+json_data <- readr::read_file("ko00001.json")
+yaml <- yaml::yaml.load(json_data)
 
-listviewer::jsonedit(json_data, height = "800px", mode = "view")
+tree <- as.Node(yaml)
+test <- as.data.frame(tree)
 
 
-write.csv(json_data, 'pathways.csv')
+write.csv(test, 'pathways.csv')
 ```
 
 
