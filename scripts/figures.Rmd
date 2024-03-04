@@ -440,7 +440,7 @@ ggsave("../figures/species_per_enzyme/ez_copies_per_species_heatmap.png", device
 
 ### Figure 3
 # PCOAs using tsne
-# output EC and taxonomy statistics to a file 
+##### still need to output EC and taxonomy statistics to a file 
 ```{r}
 ### EC data PCOA
 ########### need to redo this with all enzymes, not just gibbs
