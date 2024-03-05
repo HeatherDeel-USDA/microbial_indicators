@@ -20,3 +20,9 @@ figures
 figures/old
 dan_out_2
 manuscript
+scripts/ko00001.json
+scripts/ko00001.keg
+scripts/pathways.csv
+scripts/pathways.xlsx
+scripts/top_ECs.RDS
+scripts/top_TAX.RDS
