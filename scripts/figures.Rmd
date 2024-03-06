@@ -31,6 +31,35 @@ library(RColorBrewer)
 library(png)
 library(gplots)
 library(dplyr)
+library(ggrepel)
+library(ggforce)
+
+# function to set the panel size of a multi-panel ggplot object
+set_panel_size <- function (p=NULL, g=ggplotGrob(p), 
+                            file=NULL, margin = unit(1,"mm"), 
+                            width=unit(4, "cm"), height=unit(4, "cm")) {
+  panels <- grep("panel", g$layout$name)
+  panel_index_w<- unique(g$layout$l[panels])
+  panel_index_h<- unique(g$layout$t[panels])
+  nw <- length(panel_index_w)
+  nh <- length(panel_index_h)
+  
+  if(getRversion() < "3.3.0") {
+    g$widths <- grid:::unit.list(g$widths)
+    g$heights <- grid:::unit.list(g$heights)
+    g$widths[panel_index_w] <-  rep(list(width),  nw)
+    g$heights[panel_index_h] <- rep(list(height), nh)
+  } else {
+    g$widths[panel_index_w] <-  rep(width,  nw)
+    g$heights[panel_index_h] <- rep(height, nh)
+  }
+  if (!is.null(file)) {
+    ggsave(file, g,
+           width = convertWidth(sum(g$widths) + margin, unitTo = "in", valueOnly = TRUE),
+           height = convertHeight(sum(g$heights) + margin, unitTo = "in", valueOnly = TRUE))
+  }
+  invisible(g)  
+}
 ```
 
 ### Figure X
@@ -582,10 +611,236 @@ annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, 
 ```
 
 ### Figure X
+# Rooted and unrooted dendrogram
 # PCA with biplot showing which metabolisms drive indicators
 ```{r}
+df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
+
+data <- df %>%
+  select(-Level2, -Level3) %>%
+  as.data.frame()
+
+data <- t(data)
+colnames(data) <- df$Level3
+
+dd <- dist(data, method = "euclidean") 
+hc <- hclust(dd, method = "ward.D2") #cluster analysis on dissimilarity distances
+hcd <- as.dendrogram(hc)
+
+# Default plot
+plot(hcd, type = "rectangle", ylab = "Height") #rooted
+
+plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
+     no.margin = TRUE)
+
+### PCA (Dan's)
+meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
+ord <- rda(data) #ordination on level 3 enzyme data for each indicator
+
+q <- ordiplot(ord, choices=c(1,2), scaling=3, type='none', plot=F) #what are plot and scaling? not in documentation
+species <- data.frame(q$species)
+species$Level2 <- meta$Level2
+wanted <- goeveg::ordiselect(data, ord, fitlim=0.5)
+species <- species[wanted,]
+species$label <- row.names(species)
+species$label <- gsub("\\[", "(", species$label)
+species$label <- gsub("\\]", ")", species$label)
+species$label <-  stringr::str_extract(string = species$label, pattern = "(?<=\\().*(?=\\))")
+sites <- data.frame(q$sites)
+
+p <- ggplot(species) +
+  geom_point(data=sites, inherit.aes=F, aes(x=PC1, y=PC2)) +
+  geom_text_repel(data=sites, inherit.aes=F, aes(x=PC1, y=PC2, label=row.names(sites))) +
+  geom_segment(aes(x=0, y=0, xend=PC1, yend=PC2, color=Level2)) +
+  #geom_text_repel(aes(x=PC1, y=PC2, label = species$label, color=Level2), size=2) + # I get an error with this line
+  geom_circle(aes(x0=0, y0=0, r=4)) +
+  coord_equal() +
+  theme_bw()
+p
+
+### PCA (Heather's)(it looks awful, but the clustering is really different)
+library(ape)
+dd2 <- vegdist(data, method = "bray")
+res <- pcoa(dd2)
+res$values
+biplot(res)
+
+data.st = apply(data, 2, scale, center = TRUE, scale = TRUE)
+par(mfrow=c(1,2))
+biplot(res, data)
+biplot(res, data.st)
+
+# Reverse the ordination axes in the  plot
+par(mfrow=c(1,2))
+biplot(res, data, dir.axis1=-1, dir.axis2=-1)
+biplot(res, data.st, dir.axis1=-1, dir.axis2=-1)
+
+# another type of PCA biplot
+
+# show eigen value score of PCA
+library(factoextra) # need to install these
+library(factoMineR)
+
+res.pca <- PCA(datasetnew,  graph = FALSE)
+res.pca$eig
+
+# show scree plot of PCA
+fviz_screeplot(res.pca, addlabels = TRUE)
+
+# show pricipal component score
+res.pca$ind$coord
+
+# show graph of two dimensional variable
+fviz_pca_ind(res.pca, col.ind = "cos2", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel = TRUE)
+
+# show graph of biplot analysis
+fviz_pca_biplot(res.pca, repel = TRUE)
 
 ```
+
+### More of Dan's PCA code (incorporate into above chunk and delete later)
+```{r}
+df <- read_xlsx("../figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
+
+data <- df %>%
+  select(-Level2, -Level3) %>%
+  as.data.frame()
+
+data <- t(data)
+colnames(data) <- df$Level3
+data <- data[,colSums(data) > 0]
+#data <- decostand(data, method="pa")
+
+meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
+meta <- meta[meta$Level3 %in% colnames(data),]
+
+dd <- dist(data, method = "euclidean")
+hc <- hclust(dd, method = "ward.D2")
+hcd <- as.dendrogram(hc)
+
+plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
+     no.margin = TRUE)
+
+
+ord <- metaMDS(data)
+
+q <- ordiplot(ord, choices=c(1,2), scaling=1, type='none') 
+species <- data.frame(q$species)
+names(species) <- c('Axis1', 'Axis2')
+species$Level2 <- meta$Level2
+wanted <- goeveg::ordiselect(data, ord, fitlim=0.4)
+species <- species[wanted,]
+species$label <- row.names(species)
+species$label <- gsub("\\[", "(", species$label)
+species$label <- gsub("\\]", ")", species$label)
+species$label <-  stringr::str_extract(string = species$label, pattern = "(?<=\\().*(?=\\))")
+species$label <- gsub("TCA cycle\\) \\(", "", species$label)
+sites <- data.frame(q$sites)
+names(sites) <- c('Axis1', 'Axis2')
+
+p <- ggplot(species) +
+  geom_point(data=sites, inherit.aes=F, aes(x=Axis1, y=Axis2)) +
+  ggrepel::geom_text_repel(data=sites, inherit.aes=F, 
+                  aes(x=Axis1, y=Axis2, label=row.names(sites))) +
+  geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2, color=Level2), 
+               arrow = arrow(length = unit(0.1, "cm"))) +
+  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), 
+                  size=3, segment.color="grey80") +
+  ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
+  coord_equal() +
+  theme_bw()
+p
+```
+
+```{r}
+df <- read_xlsx("../figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
+
+data <- df %>%
+  select(-Enzyme) %>%
+  as.data.frame()
+row.names(data) <- df$Enzyme
+
+data[is.na(data)] <- 0
+data <- t(data)
+data <- data[,colSums(data) > 0]
+#data <- decostand(data, 'range', margin=1)
+data <- decostand(data, 'pa')
+
+dd <- dist(data, method = "euclidean")
+hc <- hclust(dd, method = "ward.D2")
+hcd <- as.dendrogram(hc)
+
+plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
+     no.margin = TRUE)
+
+ord <- metaMDS(data)
+
+q <- ordiplot(ord, choices=c(1,2), scaling=1, type='none') 
+species <- data.frame(q$species)
+names(species) <- c('Axis1', 'Axis2')
+wanted <- goeveg::ordiselect(data, ord, fitlim=0.25)
+species <- species[wanted,]
+species$label <- row.names(species)
+sites <- data.frame(q$sites)
+names(sites) <- c('Axis1', 'Axis2')
+
+p <- ggplot(species) +
+  geom_point(data=sites, inherit.aes=F, aes(x=Axis1, y=Axis2)) +
+  ggrepel::geom_text_repel(data=sites, inherit.aes=F, 
+                           aes(x=Axis1, y=Axis2, label=row.names(sites))) +
+  geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2), color='blue', 
+               arrow = arrow(length = unit(0.1, "cm"))) +
+  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label), 
+                           size=2, color='blue', max.overlaps=20, segment.color="grey80") +
+  #geom_circle(aes(x0=0, y0=0, r=1)) +
+  coord_equal() +
+  theme_bw()
+
+```
+
+```{r}
+df <- read_xlsx("../figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
+df$Enzyme <- gsub("EC.", "EC:", df$Enzyme)
+
+P <- readRDS('../machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+
+data <- P[,df$Enzyme]
+
+meta <- P
+meta <- meta[,c(1:2,2439:2587)]
+
+ord <- metaMDS(data)
+
+q <- ordiplot(ord, choices=c(1,2), scaling=3, type='none') 
+species <- data.frame(q$species)
+names(species) <- c('Axis1', 'Axis2')
+wanted <- goeveg::ordiselect(data, ord, fitlim=0.1)
+species <- species[wanted,]
+species$label <- row.names(species)
+sites <- data.frame(q$sites)
+names(sites) <- c('Axis1', 'Axis2')
+
+p <- ggplot(sites, aes(x=Axis1, y=Axis2)) +
+  geom_point(aes(shape=meta$Current_Land_Use, fill=meta$ClimateZ, size=meta$SHMI2_bin)) +
+  #facet_wrap(~ meta$ClimateZ) +
+  scale_shape_manual(values=c(21,22,23,24), labels=c("Annual Cropland","Perennial Cropland","Rangeland")) +
+  guides(fill=guide_legend(override.aes = list(size=4, shape=21))) +  #geom_text_repel(aes(label=row.names(sites))) +
+  coord_equal() +
+  theme_bw()
+
+
+
+# p1 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + theme_bw() +
+#   geom_point(aes(fill=meta$ClimateZ, shape=meta$Current_Land_Use), size=4) +
+#   scale_shape_manual(values=c(21,22,23,24), labels = c("Annual Cropland","Perennial Cropland","Rangeland")) +
+#   guides(size="none",
+#          fill = guide_legend(override.aes = list(size = 4, shape=21))) +
+#   labs(fill="Climate Zone", shape="Land Use", x="tSNE 1", y="tSNE 2", title = "Enzyme Data")
+# p1
+#ggsave(paste0("figures/All_enzymes_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
+
+```
+### End of Dan's PCA code
 
 ### Figure X
 # Grouping enzyme abundances by metabaolism and correlating with SHMI
