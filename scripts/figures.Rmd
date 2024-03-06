@@ -678,7 +678,7 @@ biplot(res, data.st, dir.axis1=-1, dir.axis2=-1)
 # another type of PCA biplot
 
 # show eigen value score of PCA
-library(factoextra) # need to install these
+library(factoextra) 
 library(factoMineR)
 
 res.pca <- PCA(datasetnew,  graph = FALSE)
@@ -789,9 +789,9 @@ p <- ggplot(species) +
                            aes(x=Axis1, y=Axis2, label=row.names(sites))) +
   geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2), color='blue', 
                arrow = arrow(length = unit(0.1, "cm"))) +
-  #ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label), 
-                           #size=2, color='blue', max.overlaps=20, segment.color="grey80") +
-  #geom_circle(aes(x0=0, y0=0, r=1)) +
+  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label), 
+                           size=2, color='blue', max.overlaps=20, segment.color="grey80") +
+  geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
   theme_bw()
 p
@@ -834,7 +834,59 @@ p
 ### Figure X
 # Grouping enzyme abundances by metabaolism and correlating with SHMI
 ```{r}
-# can use code above to get enzymes and metadata together. Just need to join with something that has metabolism categories
+pathways <- read_xlsx("pathways_files/pathways.xlsx", sheet="pathways")
+pathways <- pathways[,1:4]
+
+df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
+df$Enzyme <- gsub("EC.", "EC:", df$Enzyme)
+
+P <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+
+data <- P[,df$Enzyme]
+data_t <- t(data) %>% 
+  data.frame()
+data_t <- rownames_to_column(data_t, var = "EC")
+data_t$EC <- gsub("EC.", "", data_t$EC)
+
+df$Enzyme <- gsub("EC:", "", df$Enzyme)
+pathways_filt <- pathways %>% 
+  filter(EC %in% df$Enzyme)
+
+data_t_pw <- data_t %>% 
+  left_join(pathways, by = "EC") %>% 
+  filter(!is.na(Level2)) %>% 
+  group_by(Level2) %>% 
+  summarise_if(is.numeric, sum, na.rm=TRUE)
+
+data_pw <- t(data_t_pw)
+data_pw <- row_to_names(data_pw, 1) %>% 
+  data.frame()
+
+data_pw2 <- bind_cols(data_pw, P)
+data_pw2 <- data_pw2[,c(1:34,2472:2620)] # all data minus enzymes
+data_pw3 <- data_pw2[,c(1:33,183)] # just level 2 metabolisms and SHMI2_bin
+
+data_pw3 <- data_pw3 %>% 
+  mutate_at(c(1:33), as.numeric)
+colnames(data_pw3) <- gsub("\\.","_",colnames(data_pw3))
+
+metabolisms <- names(data_pw3)[1:33]
+
+for (m in metabolisms) {
+  p <- ggplot(data_pw3, aes_string(x = data_pw3$SHMI2_bin, y = m)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(x = "SHMI Bin")
+  ggsave(paste0("figures/metabolisms_SHMI/SHMI_",m,".png"), device='png', dpi=600, height=4, width=6)
+  assign(m,p)
+}
+
+### almost there, but need to figure this out - create a list of the plot items themselves. Seems like it's just creating a list of the character strings
+plot_list <- list(metabolisms)
+p_all <- ggarrange(plotlist = plot_list, nrow = 6, ncol = 6)
+p_all
+
+
 ```
 
 
