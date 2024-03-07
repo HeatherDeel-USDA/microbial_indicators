@@ -745,6 +745,7 @@ p <- ggplot(species) +
   geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2, color=Level2), 
                arrow = arrow(length = unit(0.1, "cm"))) +
   #ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), size=3, segment.color="grey80") +
+  # to get ggrepel to work, try reinstalling phyloseq from github, and updating ggrepel
   ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
   theme_bw()
@@ -870,21 +871,55 @@ data_pw3 <- data_pw3 %>%
   mutate_at(c(1:33), as.numeric)
 colnames(data_pw3) <- gsub("\\.","_",colnames(data_pw3))
 
+# change some colnames so they aren't so long and graph better
+# tried various ways of wrapping the titles and none would work bc title is coming from m
+colnames(data_pw3) <- gsub("Biosynthesis_of_other_secondary_metabolites","Biosynth_secondary_metabolites",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Cellular_community___eukaryotes","Cellular_community_eukaryotes",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Cellular_community___prokaryotes","Cellular_community_prokaryotes",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Folding__sorting_and_degradation","Folding_sorting_degradation",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Glycan_biosynthesis_and_metabolism","Glyc_biosynthesis_metabolism",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Information_processing_in_viruses","Info_processing_viruses",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Metabolism_of_cofactors_and_vitamins","Metabolism_cofactors_vitamins",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Metabolism_of_other_amino_acids","Metabolism_other_amino_acids",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Metabolism_of_terpenoids_and_polyketides","Metabolism_terpenoids_polyketides",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Signaling_molecules_and_interaction","Signaling_molecules_interaction",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Xenobiotics_biodegradation_and_metabolism","Xeno_biodegradation_metabolism",colnames(data_pw3))
+
 metabolisms <- names(data_pw3)[1:33]
 
 for (m in metabolisms) {
   p <- ggplot(data_pw3, aes_string(x = data_pw3$SHMI2_bin, y = m)) +
   geom_boxplot() +
+  scale_x_discrete(labels = c("VL","L","M","H","VH")) +
   theme_bw() +
-  labs(x = "SHMI Bin")
-  ggsave(paste0("figures/metabolisms_SHMI/SHMI_",m,".png"), device='png', dpi=600, height=4, width=6)
+  theme(plot.title = element_text(size = 7, face = "plain"),
+        plot.margin = unit(c(0.10,0.10,0.10,0.10), "cm")) +
+  labs(x = "", y = "", title = m)
+  #ggsave(paste0("figures/metabolisms_SHMI/SHMI_",m,".png"), device='png', dpi=600, height=4, width=6)
   assign(m,p)
 }
 
-### almost there, but need to figure this out - create a list of the plot items themselves. Seems like it's just creating a list of the character strings
-plot_list <- list(metabolisms)
+# plot of all metabolic categories
+plot_list <- list(Amino_acid_metabolism, Biosynthesis_secondary_metabolites,
+                  Carbohydrate_metabolism, Cell_growth_and_death, Cell_motility,
+                  Cellular_community_eukaryotes, Cellular_community_prokaryotes,
+                  Chromosome, Circulatory_system, Development_and_regeneration,
+                  Digestive_system, Endocrine_system, Energy_metabolism, Excretory_system, 
+                  Folding_sorting_degradation, Glyc_biosynthesis_metabolism,
+                  Immune_system, Info_processing_viruses, Lipid_metabolism,
+                  Membrane_transport, Metabolism_cofactors_vitamins,
+                  Metabolism_other_amino_acids, Metabolism_terpenoids_polyketides,
+                  Nervous_system, Nucleotide_metabolism, Replication_and_repair,
+                  Sensory_system, Signal_transduction, Signaling_molecules_and_interaction,
+                  Transcription, Translation, Transport_and_catabolism,
+                  Xeno_biodegradation_metabolism)
 p_all <- ggarrange(plotlist = plot_list, nrow = 6, ncol = 6)
 p_all
+
+annotate_figure(p_all, left = text_grob("Relative Abundance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("SHMI Bin", size = 14))
+ 
+ggsave("figures/metabolisms_SHMI/SHMI_all.png", device='png', dpi=600, height=10, width=13)
 
 
 ```
