@@ -744,8 +744,7 @@ p <- ggplot(species) +
                   aes(x=Axis1, y=Axis2, label=row.names(sites))) +
   geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2, color=Level2), 
                arrow = arrow(length = unit(0.1, "cm"))) +
-  #ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), size=3, segment.color="grey80") +
-  # to get ggrepel to work, try reinstalling phyloseq from github, and updating ggrepel
+  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), size=3, segment.color="grey80") +
   ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
   theme_bw()
@@ -892,8 +891,7 @@ for (m in metabolisms) {
   geom_boxplot() +
   scale_x_discrete(labels = c("VL","L","M","H","VH")) +
   theme_bw() +
-  theme(plot.title = element_text(size = 7, face = "plain"),
-        plot.margin = unit(c(0.10,0.10,0.10,0.10), "cm")) +
+  theme(plot.title = element_text(size = 7, face = "plain"), plot.margin = unit(c(0.10,0.10,0.10,0.10), "cm")) +
   labs(x = "", y = "", title = m)
   #ggsave(paste0("figures/metabolisms_SHMI/SHMI_",m,".png"), device='png', dpi=600, height=4, width=6)
   assign(m,p)
@@ -920,8 +918,6 @@ annotate_figure(p_all, left = text_grob("Relative Abundance", rot = 90, vjust = 
                 bottom = text_grob("SHMI Bin", size = 14))
  
 ggsave("figures/metabolisms_SHMI/SHMI_all.png", device='png', dpi=600, height=10, width=13)
-
-
 ```
 
 
