@@ -951,10 +951,24 @@ annotate_figure(p_all, left = text_grob("Relative Abundance", rot = 90, vjust = 
  
 ggsave("figures/metabolisms_SHMI/SHMI_all_sig.png", device='png', dpi=600, height=10, width=13)
 
-# subset to most significant metabolic categories
-# threshold = 
-plot_list2 <- list()
+# subset to significant metabolic categories
+plot_list2 <- list(Amino_acid_metabolism, Biosynthesis_secondary_metabolites,
+                  Carbohydrate_metabolism, Cellular_community_prokaryotes,
+                  Chromosome,Digestive_system, Endocrine_system, Energy_metabolism, 
+                  Excretory_system, Folding_sorting_degradation, 
+                  Glyc_biosynthesis_metabolism, Info_processing_viruses, Lipid_metabolism,
+                  Membrane_transport, Metabolism_cofactors_vitamins,
+                  Metabolism_other_amino_acids, Metabolism_terpenoids_polyketides,
+                  Nucleotide_metabolism, Replication_and_repair,Transcription, 
+                  Transport_and_catabolism,Xeno_biodegradation_metabolism)
 
+p_sig <- ggarrange(plotlist = plot_list2, nrow = 6, ncol = 4)
+p_sig
+
+annotate_figure(p_sig, left = text_grob("Relative Abundance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("SHMI Bin", size = 14))
+ 
+ggsave("figures/metabolisms_SHMI/SHMI_sig.png", device='png', dpi=600, height=11, width=10)
 ```
 
 
