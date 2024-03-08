@@ -33,6 +33,7 @@ library(gplots)
 library(dplyr)
 library(ggrepel)
 library(ggforce)
+library(egg)
 
 # function to set the panel size of a multi-panel ggplot object
 set_panel_size <- function (p=NULL, g=ggplotGrob(p), 
@@ -234,10 +235,9 @@ for (myVar in myVars) {
 
 ### Figure X
 # functional redundancy in taxonomic models
-####### double check sorting of x and y axes and resort/regen plots if needed
 ```{r}
-top_ECs <- readRDS('top_ECs.RDS')
-top_TAX <- readRDS('top_TAX.RDS')
+top_ECs <- readRDS('scripts/top_ECs.RDS')
+top_TAX <- readRDS('scripts/top_TAX.RDS')
 
 ### graphs
 myVars <- c("ace", "activeC", "agg_stab", "fe", "k", "mg", "mn", "p", "ph", "resp", "SOM", "water_cap", "zn")
@@ -409,58 +409,22 @@ ggsave(paste0("figures/EC_TAX_RA_tSNE.png"), device='png', dpi=600, height=4, wi
 ### Figure X and Figure X
 # Feature importance distributions of indicators with all enzyme models
 # separating by positively (Figure 4) and negatively (Figure 5) correlated enzymes
-####### Need to redo this with new variable importances in Dan code (now pasted above)
 ```{r}
+top_ECs <- readRDS('scripts/top_ECs.RDS')
+
 myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
 for (myVar in myVars) {
-     filenames <- list.files(paste0("machine_learning/16S_EC/",myVar,"_model_results_RA_corr/"), pattern = paste0(myVar,"_RA_corr_varimp*"), full.names = TRUE)
-  varimps <- lapply(filenames, read.csv, header = FALSE)
-  varimps_full <- varimps %>% 
-    reduce(full_join)
-  
-  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
-  varimps_full$Predictor <- gsub("EC_","EC:", varimps_full$Predictor)
-  varimps_full$Predictor <- gsub("_","\\.", varimps_full$Predictor)
-  
- # gibbs <- read.csv("picrust2_files/GIBBs.EC.numbers.csv", header = TRUE)
-
- gDF <- varimps_full %>%
-    mutate(Predictor=fct_reorder(Predictor, VIP, .fun=median, .desc=TRUE))
+ indicator.ECs <- top_ECs %>%
+    filter(Indicator == myVar) %>%
+    arrange(desc(EC.VIP))
 
  # calculate positive and negative correlations between enzymes and indicators
  ml_EC_RA_corr <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
+ colnames(ml_EC_RA_corr) <- gsub("EC:", "EC.", colnames(ml_EC_RA_corr))
  
- # putting some indicators into their own loops since climateZ, clay, DNA not all found in them
- if (myVar == 'p') {
-  ml_indic <- ml_EC_RA_corr %>% 
-    select(gDF$Predictor, paste0(myVar)) %>% 
-    subset(select=-c(DNA))
- }
- 
- if (myVar == 'ph') {
-  ml_indic <- ml_EC_RA_corr %>% 
-    select(gDF$Predictor, paste0(myVar)) %>% 
-    subset(select=-c(clay))
- }
- 
- if (myVar == 'zn') {
-  ml_indic <- ml_EC_RA_corr %>% 
-    select(gDF$Predictor, paste0(myVar)) %>% 
-    subset(select=-c(clay, DNA))
- }
- 
- if (myVar == 'fe') {
-  ml_indic <- ml_EC_RA_corr %>% 
-    select(gDF$Predictor, paste0(myVar)) %>% 
-    subset(select=-c(ClimateZ))
- }
- 
- if (myVar %in% c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'ace', 'activeC', 'k')) {
-  ml_indic <- ml_EC_RA_corr %>% 
-    select(gDF$Predictor, paste0(myVar)) %>% 
-    subset(select=-c(ClimateZ, clay, DNA))
- }
+ ml_indic <- ml_EC_RA_corr %>% 
+   select(indicator.ECs$EC, paste0(myVar))
  
  ml_indic <- as.matrix(ml_indic)
  ec.mat <- rcorr(ml_indic)
@@ -468,54 +432,34 @@ for (myVar in myVars) {
  ec.indic <- ec.r %>% 
    subset(select = paste0(myVar))
  ec.indic <- data.frame(ec.indic)
- 
- ############# format ec.indic and write most important ECs to a file
- ec.indic2 <- rownames_to_column(ec.indic, var = "Predictor")
- gDF2 <- gDF %>% 
-   filter(Predictor %in% ec.indic2$Predictor)
- temp2 <- gDF2 %>% group_by(Predictor) %>%
-   summarise(Var = median(VIP)) %>%
-   top_n(10, Var)
- gDF2 <- gDF2 %>%
-   filter(Predictor %in% temp2$Predictor)
-   # write important variables to a csv file
- gDF2.grouped <- gDF2 %>% 
-   group_by(Predictor) %>% 
-   summarise(mean_VIP = mean(VIP)) %>% 
-   mutate(indicator = myVar)
-
- write.table(gDF2.grouped, "machine_learning/16S_EC/top_ECs_HLD.csv", sep = ",",
-              append = TRUE, row.names = FALSE, col.names = FALSE)
 
  # format ec.indic but separate by positive and negative correlation values
  ec.indic.pos <- ec.indic %>% 
    filter(ec.indic[,1] > 0)
  ec.indic.neg <- ec.indic %>% 
    filter(ec.indic[,1] < 0)
- ec.indic.pos <- rownames_to_column(ec.indic.pos, var = "Predictor")
- ec.indic.neg <- rownames_to_column(ec.indic.neg, var = "Predictor")
- ec.indic.pos <- ec.indic.pos[ec.indic.pos$Predictor != myVar,]
- ec.indic.neg <- ec.indic.neg[ec.indic.neg$Predictor != myVar,]
+ ec.indic.pos <- rownames_to_column(ec.indic.pos, var = "EC")
+ ec.indic.neg <- rownames_to_column(ec.indic.neg, var = "EC")
+ ec.indic.pos <- ec.indic.pos[ec.indic.pos$EC != myVar,]
+ ec.indic.neg <- ec.indic.neg[ec.indic.neg$EC != myVar,]
 
   # filter out poor indicators in pos and neg correlations
-  # add this if I want to include climate, clay, and DNA:
-  # | Predictor %in% c('clay','ClimateZ','DNA')
- gDF.pos <- gDF %>% 
-   filter(Predictor %in% ec.indic.pos$Predictor) 
- gDF.neg <- gDF %>% 
-   filter(Predictor %in% ec.indic.neg$Predictor) 
+ gDF.pos <- indicator.ECs %>% 
+   filter(EC %in% ec.indic.pos$EC) 
+ gDF.neg <- indicator.ECs %>% 
+   filter(EC %in% ec.indic.neg$EC) 
  
-  temp.pos <- gDF.pos %>% group_by(Predictor) %>%
-    summarise(Var = median(VIP)) %>%
+  temp.pos <- gDF.pos %>% group_by(EC) %>%
+    summarise(Var = median(EC.VIP)) %>%
     top_n(10, Var) 
-  temp.neg <- gDF.neg %>% group_by(Predictor) %>%
-    summarise(Var = median(VIP)) %>%
+  temp.neg <- gDF.neg %>% group_by(EC) %>%
+    summarise(Var = median(EC.VIP)) %>%
     top_n(10, Var) 
   
   gDF.pos <- gDF.pos %>%
-    filter(Predictor %in% temp.pos$Predictor)
+    filter(EC %in% temp.pos$EC)
   gDF.neg <- gDF.neg %>%
-    filter(Predictor %in% temp.neg$Predictor)
+    filter(EC %in% temp.neg$EC)
   
   # changing myVar format for cleaner plot titles
   if (myVar == 'resp'){
@@ -555,34 +499,32 @@ for (myVar in myVars) {
     myVar <- "Fe"
   }
   # positive correlation graph
-  means <- aggregate(VIP ~ Predictor, gDF.pos, median)
-  means$Category <- 'Other'
-  means$VIP <- round(means$VIP, 3)
-  p.pos <- ggplot(gDF.pos, aes(x=Predictor, y=VIP)) +
-    #scale_fill_manual(values=colors, na.value="white") +
-    geom_boxplot(alpha = 1, fatten = 1) + 
+  means <- aggregate(EC.VIP ~ EC, gDF.pos, median)
+  means$EC.VIP <- round(means$EC.VIP, 3)
+  p.pos <- ggplot(gDF.pos, aes(fct_reorder(EC, EC.VIP, .desc=TRUE, .na_rm=FALSE), y=EC.VIP)) +
+    geom_bar(stat = "identity", width = 0.75) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
-          legend.position = "none", plot.title = element_text(size = 12)) +
+          legend.position = "none", plot.title = element_text(size = 12),
+          plot.margin = unit(c(0.05,0.05,0.05,0.05), "cm")) +
     labs(x="", y="", title = myVar)
   p.pos
   assign(paste0(myVar,"_pos"),p.pos)
-  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=8, width=8)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=4, width=6)
   
   # negative correlation graph
-  means <- aggregate(VIP ~ Predictor, gDF.neg, median)
-  means$Category <- 'Other'
-  means$VIP <- round(means$VIP, 3)
-  p.neg <- ggplot(gDF.neg, aes(x=Predictor, y=VIP)) +
-    #scale_fill_manual(values=colors, na.value="white") +
-    geom_boxplot(alpha = 1, fatten = 1) + 
+  means <- aggregate(EC.VIP ~ EC, gDF.neg, median)
+  means$EC.VIP <- round(means$EC.VIP, 3)
+  p.neg <- ggplot(gDF.neg, aes(fct_reorder(EC, EC.VIP, .desc=TRUE, .na_rm=FALSE), y=EC.VIP)) +
+    geom_bar(stat = "identity", width = 0.75) + 
     theme_bw() +
     theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5), 
-          legend.position = "none", plot.title = element_text(size = 12)) +
+          legend.position = "none", plot.title = element_text(size = 12),
+          plot.margin = unit(c(0.05,0.05,0.05,0.05), "cm")) +
     labs(x="", y="", title = myVar)
   p.neg
   assign(paste0(myVar,"_neg"),p.neg)
-  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
+  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # positive correlations graph
@@ -593,9 +535,9 @@ p_merged_pos <- ggarrange(ACE_pos, ActiveC_pos, AggStab_pos,
                           nrow = 2, ncol = 7)
 p_merged_pos
 
-annotate_figure(p_merged_pos, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
+annotate_figure(p_merged_pos, left = text_grob("Average Variable Importance", rot = 90, vjust = 1, size = 14))
 
-#ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
+ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
 p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg, 
@@ -605,9 +547,9 @@ p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg,
                           nrow = 2, ncol = 7)
 p_merged_neg
 
-annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, vjust = 1, size = 14))
+annotate_figure(p_merged_neg, left = text_grob("Average Variable Importance", rot = 90, vjust = 1, size = 14))
 
-#ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
+ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 ### Figure X
@@ -615,50 +557,52 @@ annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, 
 # PCA with biplot showing which metabolisms drive indicators
 # Various other figures
 ####### Decide which of the figures in this section make sense to go in the manuscript
+####### I like the idea of one biplot that for each indicator, it shows which level 2 metabolism drives it the most
+####### The biplot can perhaps be accompanied by a dendrogram?
 ```{r}
-df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
-
-data <- df %>%
-  select(-Level2, -Level3) %>%
-  as.data.frame()
-
-data <- t(data)
-colnames(data) <- df$Level3
-
-dd <- dist(data, method = "euclidean") 
-hc <- hclust(dd, method = "ward.D2") #cluster analysis on dissimilarity distances
-hcd <- as.dendrogram(hc)
-
-# Default plot
-plot(hcd, type = "rectangle", ylab = "Height") #rooted
-
-plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
-     no.margin = TRUE)
-
-### PCA (Dan's)
-meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
-ord <- rda(data) #ordination on level 3 enzyme data for each indicator
-
-q <- ordiplot(ord, choices=c(1,2), scaling=3, type='none', plot=F) #what are plot and scaling? not in documentation
-species <- data.frame(q$species)
-species$Level2 <- meta$Level2
-wanted <- goeveg::ordiselect(data, ord, fitlim=0.5)
-species <- species[wanted,]
-species$label <- row.names(species)
-species$label <- gsub("\\[", "(", species$label)
-species$label <- gsub("\\]", ")", species$label)
-species$label <-  stringr::str_extract(string = species$label, pattern = "(?<=\\().*(?=\\))")
-sites <- data.frame(q$sites)
-
-p <- ggplot(species) +
-  geom_point(data=sites, inherit.aes=F, aes(x=PC1, y=PC2)) +
-  geom_text_repel(data=sites, inherit.aes=F, aes(x=PC1, y=PC2, label=row.names(sites))) +
-  geom_segment(aes(x=0, y=0, xend=PC1, yend=PC2, color=Level2)) +
-  #geom_text_repel(aes(x=PC1, y=PC2, label = species$label, color=Level2), size=2) + # I get an error with this line
-  geom_circle(aes(x0=0, y0=0, r=4)) +
-  coord_equal() +
-  theme_bw()
-p
+# df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
+# 
+# data <- df %>%
+#   select(-Level2, -Level3) %>%
+#   as.data.frame()
+# 
+# data <- t(data)
+# colnames(data) <- df$Level3
+# 
+# dd <- dist(data, method = "euclidean") 
+# hc <- hclust(dd, method = "ward.D2") #cluster analysis on dissimilarity distances
+# hcd <- as.dendrogram(hc)
+# 
+# # Default plot
+# plot(hcd, type = "rectangle", ylab = "Height") #rooted
+# 
+# plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
+#      no.margin = TRUE)
+# 
+# ### PCA (Dan's)
+# meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
+# ord <- rda(data) #ordination on level 3 enzyme data for each indicator
+# 
+# q <- ordiplot(ord, choices=c(1,2), scaling=3, type='none', plot=F) #what are plot and scaling? not in documentation
+# species <- data.frame(q$species)
+# species$Level2 <- meta$Level2
+# wanted <- goeveg::ordiselect(data, ord, fitlim=0.5)
+# species <- species[wanted,]
+# species$label <- row.names(species)
+# species$label <- gsub("\\[", "(", species$label)
+# species$label <- gsub("\\]", ")", species$label)
+# species$label <-  stringr::str_extract(string = species$label, pattern = "(?<=\\().*(?=\\))")
+# sites <- data.frame(q$sites)
+# 
+# p1 <- ggplot(species) +
+#   geom_point(data=sites, inherit.aes=F, aes(x=PC1, y=PC2)) +
+#   geom_text_repel(data=sites, inherit.aes=F, aes(x=PC1, y=PC2, label=row.names(sites))) +
+#   geom_segment(aes(x=0, y=0, xend=PC1, yend=PC2, color=Level2)) +
+#   #geom_text_repel(aes(x=PC1, y=PC2, label = species$label, color=Level2), size=2) + # I get an error with this line
+#   geom_circle(aes(x0=0, y0=0, r=4)) +
+#   coord_equal() +
+#   theme_bw()
+# p1
 ```
 
 ```{r}
@@ -700,7 +644,7 @@ species$label <- gsub("TCA cycle\\) \\(", "", species$label)
 sites <- data.frame(q$sites)
 names(sites) <- c('Axis1', 'Axis2')
 
-p <- ggplot(species) +
+p2 <- ggplot(species) +
   geom_point(data=sites, inherit.aes=F, aes(x=Axis1, y=Axis2)) +
   ggrepel::geom_text_repel(data=sites, inherit.aes=F, 
                   aes(x=Axis1, y=Axis2, label=row.names(sites))) +
@@ -710,7 +654,7 @@ p <- ggplot(species) +
   ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
   theme_bw()
-p
+p2
 ```
 
 ```{r}
@@ -745,7 +689,7 @@ species$label <- row.names(species)
 sites <- data.frame(q$sites)
 names(sites) <- c('Axis1', 'Axis2')
 
-p <- ggplot(species) +
+p3 <- ggplot(species) +
   geom_point(data=sites, inherit.aes=F, aes(x=Axis1, y=Axis2)) +
   ggrepel::geom_text_repel(data=sites, inherit.aes=F, 
                            aes(x=Axis1, y=Axis2, label=row.names(sites))) +
@@ -756,7 +700,7 @@ p <- ggplot(species) +
   geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
   theme_bw()
-p
+p3
 
 ```
 
@@ -782,14 +726,14 @@ species$label <- row.names(species)
 sites <- data.frame(q$sites)
 names(sites) <- c('Axis1', 'Axis2')
 
-p <- ggplot(sites, aes(x=Axis1, y=Axis2)) +
+p4 <- ggplot(sites, aes(x=Axis1, y=Axis2)) +
   geom_point(aes(shape=meta$Current_Land_Use, fill=meta$ClimateZ, size=meta$SHMI2_bin)) +
   #facet_wrap(~ meta$ClimateZ) +
   scale_shape_manual(values=c(21,22,23,24), labels=c("Annual Cropland","Perennial Cropland","Rangeland")) +
   guides(fill=guide_legend(override.aes = list(size=4, shape=21))) +  #geom_text_repel(aes(label=row.names(sites))) +
   coord_equal() +
   theme_bw()
-p
+p4
 ```
 
 ### Figure X
