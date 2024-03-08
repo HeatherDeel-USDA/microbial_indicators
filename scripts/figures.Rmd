@@ -613,6 +613,8 @@ annotate_figure(p_merged_neg, left = text_grob("Variable Importance", rot = 90, 
 ### Figure X
 # Rooted and unrooted dendrogram
 # PCA with biplot showing which metabolisms drive indicators
+# Various other figures
+####### Decide which of the figures in this section make sense to go in the manuscript
 ```{r}
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
 
@@ -657,48 +659,8 @@ p <- ggplot(species) +
   coord_equal() +
   theme_bw()
 p
-
-### PCA (Heather's)(it looks awful, but the clustering is really different)
-library(ape)
-dd2 <- vegdist(data, method = "bray")
-res <- pcoa(dd2)
-res$values
-biplot(res)
-
-data.st = apply(data, 2, scale, center = TRUE, scale = TRUE)
-par(mfrow=c(1,2))
-biplot(res, data)
-biplot(res, data.st)
-
-# Reverse the ordination axes in the  plot
-par(mfrow=c(1,2))
-biplot(res, data, dir.axis1=-1, dir.axis2=-1)
-biplot(res, data.st, dir.axis1=-1, dir.axis2=-1)
-
-# another type of PCA biplot
-
-# show eigen value score of PCA
-library(factoextra) 
-library(factoMineR)
-
-res.pca <- PCA(datasetnew,  graph = FALSE)
-res.pca$eig
-
-# show scree plot of PCA
-fviz_screeplot(res.pca, addlabels = TRUE)
-
-# show pricipal component score
-res.pca$ind$coord
-
-# show graph of two dimensional variable
-fviz_pca_ind(res.pca, col.ind = "cos2", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel = TRUE)
-
-# show graph of biplot analysis
-fviz_pca_biplot(res.pca, repel = TRUE)
-
 ```
 
-### More of Dan's PCA code (get running here, incorporate into above chunk and delete later)
 ```{r}
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
 
@@ -829,7 +791,6 @@ p <- ggplot(sites, aes(x=Axis1, y=Axis2)) +
   theme_bw()
 p
 ```
-### End of Dan's PCA code
 
 ### Figure X
 # Grouping enzyme abundances by metabaolism and correlating with SHMI
@@ -872,7 +833,7 @@ colnames(data_pw3) <- gsub("\\.","_",colnames(data_pw3))
 
 # change some colnames so they aren't so long and graph better
 # tried various ways of wrapping the titles and none would work bc title is coming from m
-colnames(data_pw3) <- gsub("Biosynthesis_of_other_secondary_metabolites","Biosynth_secondary_metabolites",colnames(data_pw3))
+colnames(data_pw3) <- gsub("Biosynthesis_of_other_secondary_metabolites","Biosynthesis_secondary_metabolites",colnames(data_pw3))
 colnames(data_pw3) <- gsub("Cellular_community___eukaryotes","Cellular_community_eukaryotes",colnames(data_pw3))
 colnames(data_pw3) <- gsub("Cellular_community___prokaryotes","Cellular_community_prokaryotes",colnames(data_pw3))
 colnames(data_pw3) <- gsub("Folding__sorting_and_degradation","Folding_sorting_degradation",colnames(data_pw3))
@@ -883,6 +844,8 @@ colnames(data_pw3) <- gsub("Metabolism_of_other_amino_acids","Metabolism_other_a
 colnames(data_pw3) <- gsub("Metabolism_of_terpenoids_and_polyketides","Metabolism_terpenoids_polyketides",colnames(data_pw3))
 colnames(data_pw3) <- gsub("Signaling_molecules_and_interaction","Signaling_molecules_interaction",colnames(data_pw3))
 colnames(data_pw3) <- gsub("Xenobiotics_biodegradation_and_metabolism","Xeno_biodegradation_metabolism",colnames(data_pw3))
+
+saveRDS(data_pw3, "picrust2_files/level2_pw_SHMI.RDS")
 
 metabolisms <- names(data_pw3)[1:33]
 
@@ -908,7 +871,7 @@ plot_list <- list(Amino_acid_metabolism, Biosynthesis_secondary_metabolites,
                   Membrane_transport, Metabolism_cofactors_vitamins,
                   Metabolism_other_amino_acids, Metabolism_terpenoids_polyketides,
                   Nervous_system, Nucleotide_metabolism, Replication_and_repair,
-                  Sensory_system, Signal_transduction, Signaling_molecules_and_interaction,
+                  Sensory_system, Signal_transduction, Signaling_molecules_interaction,
                   Transcription, Translation, Transport_and_catabolism,
                   Xeno_biodegradation_metabolism)
 p_all <- ggarrange(plotlist = plot_list, nrow = 6, ncol = 6)
@@ -920,6 +883,79 @@ annotate_figure(p_all, left = text_grob("Relative Abundance", rot = 90, vjust = 
 ggsave("figures/metabolisms_SHMI/SHMI_all.png", device='png', dpi=600, height=10, width=13)
 ```
 
+### Figure X
+# subset to metabolisms that are significantly correlated with SHMI
+```{r}
+data_pw3 <- readRDS("picrust2_files/level2_pw_SHMI.RDS")
+data_pw3$SHMI2_bin <- gsub("very low", "very_low", data_pw3$SHMI2_bin)
+data_pw3$SHMI2_bin <- gsub("very high", "very_high", data_pw3$SHMI2_bin)
+
+data_pw3$SHMI2_bin <- factor(data_pw3$SHMI2_bin, levels = c('very_low', 'low','medium', 'high', 'very_high'))
+
+metabolisms <- names(data_pw3)[1:33]
+
+for (m in metabolisms) {
+
+formula <- paste(m,"~ SHMI2_bin")  
+  
+stat.test <- compare_means(as.formula(formula),
+                           data = data_pw3,
+                           method = "wilcox.test",
+                           p.adj='fdr')
+
+stat.test$Comparison <- paste0(stat.test$group1, " - ", stat.test$group2)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+
+ # create list of metabolisms with low abundance ranges so y can be assigned appropriately
+ low_met <- c("Chromosome","Circulatory_system","Digestive_system","Excretory_system", 
+              "Membrane_transport","Sensory_system")
+ if (m %in% low_met) {
+    groups$y <- max(data_pw3[,m]) + 0.25
+ } else {
+   groups$y <- max(data_pw3[,m]) + 5
+ }
+
+  p <- ggplot(data_pw3, aes_string(x = data_pw3$SHMI2_bin, y = m)) +
+  geom_boxplot() +
+  scale_x_discrete(labels = c("VL","L","M","H","VH")) +
+  theme_bw() +
+  theme(plot.title = element_text(size = 7, face = "plain"), plot.margin = unit(c(0.10,0.10,0.10,0.10), "cm")) +
+  labs(x = "", y = "", title = m) +
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=Letter))
+  p
+  #ggsave(paste0("figures/metabolisms_SHMI/SHMI_",m,"stat.png"), device='png', dpi=600, height=4, width=6)
+  assign(m,p)
+}
+
+# plot of all metabolic categories with significances
+plot_list <- list(Amino_acid_metabolism, Biosynthesis_secondary_metabolites,
+                  Carbohydrate_metabolism, Cell_growth_and_death, Cell_motility,
+                  Cellular_community_eukaryotes, Cellular_community_prokaryotes,
+                  Chromosome, Circulatory_system, Development_and_regeneration,
+                  Digestive_system, Endocrine_system, Energy_metabolism, Excretory_system, 
+                  Folding_sorting_degradation, Glyc_biosynthesis_metabolism,
+                  Immune_system, Info_processing_viruses, Lipid_metabolism,
+                  Membrane_transport, Metabolism_cofactors_vitamins,
+                  Metabolism_other_amino_acids, Metabolism_terpenoids_polyketides,
+                  Nervous_system, Nucleotide_metabolism, Replication_and_repair,
+                  Sensory_system, Signal_transduction, Signaling_molecules_interaction,
+                  Transcription, Translation, Transport_and_catabolism,
+                  Xeno_biodegradation_metabolism)
+p_all <- ggarrange(plotlist = plot_list, nrow = 6, ncol = 6)
+p_all
+
+annotate_figure(p_all, left = text_grob("Relative Abundance", rot = 90, vjust = 1, size = 14),
+                bottom = text_grob("SHMI Bin", size = 14))
+ 
+ggsave("figures/metabolisms_SHMI/SHMI_all_sig.png", device='png', dpi=600, height=10, width=13)
+
+# subset to most significant metabolic categories
+# threshold = 
+plot_list2 <- list()
+
+```
 
 
 
