@@ -96,6 +96,69 @@ p1 <- ggplot(ml_stats2, aes(x=myVar, y=r2_val, fill = model_type)) +
 p1
 
 #ggsave("figures/ml_r2.png", unit = "in", width = 10, height = 5, dpi = 300, device = "png")
+
+# calculating sig differences between EC RA and TAX RA for manuscript purposes
+ml_stats3 <- filter(ml_stats, model_type == "RA" | model_type == "RA_TAX")
+
+stat.test <- compare_means(r2_val ~ model_type,
+                           data = ml_stats3,
+                           method = "wilcox.test",
+                           p.adj='fdr', group.by = "myVar")
+
+stat.test$Comparison <- paste0(stat.test$myVar, " - ", stat.test$group1)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+groups$y <- 1
+groups <- groups[1:13,]
+groups$p.signif <- stat.test$p.signif
+
+# calculate means for manuscript purposes
+means <- aggregate(r2_val ~  model_type+myVar, ml_stats3, mean)
+means2 <- means %>% 
+  group_by(myVar) %>% 
+  mutate(r2_diff = )
+
+p2 <- ggplot(ml_stats3, aes(x=myVar, y=r2_val, fill = model_type)) + 
+  geom_boxplot() + 
+  xlab("Indicator") +
+  ylab(bquote(R^2~"Values")) +
+  theme_bw() + 
+  ylim(0,1) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  scale_fill_discrete(name = "Data Type", labels = c("RA EC", "RA TAX")) +
+  #scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P","pH","Respiration","SOM","Water Capacity","Zn")) +
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=p.signif))
+p2
+
+# calculating sig differences between EC RA and EC TOTAL for manuscript purposes
+ml_stats4 <- filter(ml_stats, model_type == "RA" | model_type == "Total")
+
+stat.test <- compare_means(r2_val ~ model_type,
+                           data = ml_stats4,
+                           method = "wilcox.test",
+                           p.adj='fdr', group.by = "myVar")
+
+stat.test$Comparison <- paste0(stat.test$myVar, " - ", stat.test$group1)
+groups <- rcompanion::cldList(p.adj ~ Comparison,
+                              data = stat.test,
+                              threshold = 0.05)
+groups$y <- 1
+groups <- groups[1:13,]
+groups$p.signif <- stat.test$p.signif
+
+p3 <- ggplot(ml_stats4, aes(x=myVar, y=r2_val, fill = model_type)) + 
+  geom_boxplot() + 
+  xlab("Indicator") +
+  ylab(bquote(R^2~"Values")) +
+  theme_bw() + 
+  ylim(0,1) +
+  theme(axis.text.x=element_text(angle=45, hjust=1)) +
+  #scale_fill_discrete(name = "Data Type", labels = c("RA EC", "Total EC")) +
+  #scale_x_discrete(labels = c("ACE","Active C","Agg. Stab.","Fe","K","Mg","Mn","P",
+  #                            "pH","Respiration","SOM","Water Capacity","Zn"))
+  geom_text(inherit.aes=F, data=groups, aes(x=Group, y=y, label=p.signif))
+p3
 ```
 
 ### Create list of taxa in all models sorted by mean VIP
