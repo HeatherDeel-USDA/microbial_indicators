@@ -373,9 +373,9 @@ for (myVar in myVars) {
                         y = fct_reorder(Species2, TAX.VIP, .desc=TRUE, .na_rm=FALSE), fill = Copies)) +
     geom_tile(color='grey20') +
     #geom_text(aes(label=round(Copies,3)), size=2) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6),
-          axis.text.y = element_text(size = 6),
-          legend.text = element_text(size = 8)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 10),
+          axis.text.y = element_text(size = 10),
+          legend.text = element_text(size = 10)) +
     scale_fill_binned(type="viridis", direction=-1,
                       breaks = c(1,2,3,4,5,6),
                       #labels=c("(0,1]","(1,2]","(2,3]","(3,4]",
@@ -383,23 +383,39 @@ for (myVar in myVars) {
                       limits=c(0,6)) +
   labs(x = "", y = "", title = myTitle, fill = "Enzyme Copies")
   
-  if (myTitle == "SOM") {
-    legend = get_legend(p2)
-    ggsave(plot=legend, "figures/heatmap_dkm/legend.png", device='png', dpi=600,
-           height=3, width=2)
-  }
+  # generating individual plots so I can arrange them with the legend
+  assign(paste0(myVar,"_hm"),p2)
   
-  p2 <- p2 + theme(legend.position = "none")
-  p2 <- set_panel_size(p2, height=unit(3, "in"), width=unit(3, "in"))
-  ggsave(paste0("figures/heatmap_dkm/ez_copies_per_species_heatmap_", myTitle,".png"), 
-         device='png', dpi=600, height=4, width=6)
-  pl[[myTitle]] <- p2
+  # if (myTitle == "SOM") {
+  #   legend = get_legend(p2)
+  #   ggsave(plot=legend, "figures/heatmap_dkm/legend.png", device='png', dpi=600,
+  #          height=3, width=2)
+  #   legend2 <- as_ggplot(legend)
+  # }
+  
+  #p2 <- p2 + theme(legend.position = "none")
+  #p2 <- set_panel_size(p2, height=unit(3, "in"), width=unit(3, "in"))
+  #ggsave(paste0("figures/heatmap_dkm/ez_copies_per_species_heatmap_", myTitle,".png"), 
+  #       device='png', dpi=600, height=4, width=6)
+  #pl[[myTitle]] <- p2
 }
 
 # create merged plot of heatmaps
-p_heatmap_all <- marrangeGrob(pl, top=NULL, layout_matrix = matrix(1:16,  nrow = 4, ncol=4, byrow=TRUE))
-ggsave(plot=p_heatmap_all, "figures/heatmap_dkm/ez_copies_per_species_heatmap.png", 
-       device='png', dpi=600, height=17, width=20)
+#p_heatmap_all <- marrangeGrob(pl, legend2, top=NULL, layout_matrix = matrix(1:16,  nrow = 5, ncol=3, byrow=TRUE))
+
+#ggsave(plot=p_heatmap_all, "figures/heatmap_dkm/ez_copies_per_species_heatmap.png", 
+#       device='png', dpi=600, height=22, width=17.5)
+
+p_heatmap_leg <- ggpubr::ggarrange(ace_hm, activeC_hm, agg_stab_hm, fe_hm, k_hm, mg_hm,
+                           mn_hm, p_hm, ph_hm, resp_hm, SOM_hm, water_cap_hm, zn_hm,
+                           nrow = 5, ncol = 3, common.legend = TRUE)
+p_heatmap_leg
+
+p_heatmap_leg <- annotate_figure(p_heatmap_leg, left = text_grob("Important Taxa", rot = 90, vjust = 1, size = 14),
+                bottom= text_grob("Important Enzymes", size = 14))
+
+ggsave(plot=p_heatmap_leg, "figures/heatmap_dkm/ez_copies_per_species_heatmap2.png", 
+       device='png', dpi=600, height=22, width=17.5)
 ```
 
 ### Figure X
