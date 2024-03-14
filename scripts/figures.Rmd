@@ -437,18 +437,20 @@ p1 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + the
          fill = guide_legend(override.aes = list(size = 4, shape=21))) +
   labs(fill="Climate Zone", shape="Land Use", x="tSNE 1", y="tSNE 2", title = "Enzyme Data")
 p1
-ggsave(paste0("figures/All_enzymes_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
+#ggsave(paste0("figures/All_enzymes_RA_corr_tSNE.png"), device='png', dpi=600, height=4, width=6)
 
 # permanova between land use and climate zone
 permanova_land <- pairwise.adonis2(data ~ Current_Land_Use,
                                 data = meta,
                                 permutations = 9999)
 # p-vals for all comparisons less than 0.05
+mapply(write.table, x = permanova_land, file = paste("figures/climate_land_permanova/ez_",names(permanova_land), "txt", sep = "."), MoreArgs = list(row.names=FALSE, sep = "\t"))
 
 permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
                                 data = meta,
                                 permutations = 9999)
 # p-vals for all comparisons less than 0.05
+mapply(write.table, x = permanova_climate, file = paste("figures/climate_land_permanova/ez_",names(permanova_climate), "txt", sep = "."), MoreArgs = list(row.names=FALSE, sep = "\t"))
 
 ### taxa data PCOA
 P <- readRDS('machine_learning/16S_TAX/ml_TAX_16S.RDS')
@@ -465,24 +467,26 @@ p2 <- M3C::tsne(t(data), labels=FALSE, dotsize = 0, seed=1234, perplex=15) + the
          fill = guide_legend(override.aes = list(size = 4, shape=21))) +
   labs(fill="Climate Zone", shape="Land Use", x="tSNE 1", y="tSNE 2", title = "Taxa Data")
 p2
-ggsave(paste0("figures/TAX_RA_tSNE.png"), device='png', dpi=600, height=4, width=6)
+#ggsave(paste0("figures/TAX_RA_tSNE.png"), device='png', dpi=600, height=4, width=6)
 
 # permanova between land use and climate zone
 permanova_land <- pairwise.adonis2(data ~ Current_Land_Use,
                                 data = meta,
                                 permutations = 9999)
 # p-vals for all comparisons less than 0.05
+mapply(write.table, x = permanova_land, file = paste("figures/climate_land_permanova/tax_",names(permanova_land), "txt", sep = "."),MoreArgs = list(row.names=FALSE, sep = "\t"))
 
 permanova_climate <- pairwise.adonis2(data ~ ClimateZ,
                                 data = meta,
                                 permutations = 9999)
 # p-vals for all comparisons less than 0.05
+mapply(write.table, x = permanova_climate, file = paste("figures/climate_land_permanova/tax_",names(permanova_climate), "txt", sep = "."),MoreArgs = list(row.names=FALSE, sep = "\t"))
 
 # can output permanova results to a file to compare how well enzyme data and taxa data distinguishes between land use and climate zones - compare R^2 and F statistics
 
 p_pcoa <- ggarrange(p1, p2, common.legend = TRUE, nrow = 1, ncol = 2)
 p_pcoa
-ggsave(paste0("figures/EC_TAX_RA_tSNE.png"), device='png', dpi=600, height=4, width=8.2)
+#ggsave(paste0("figures/EC_TAX_RA_tSNE.png"), device='png', dpi=600, height=4, width=8.2)
 ```
 
 ### Figure X and Figure X
