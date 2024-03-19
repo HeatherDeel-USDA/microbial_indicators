@@ -649,6 +649,35 @@ annotate_figure(p_merged_neg, left = text_grob("Average Variable Importance", ro
 #ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
+### Table SX
+# summary statistics of number of features included in each model
+```{r}
+myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
+
+for (myVar in myVars) {
+  filenames <- list.files(paste0("machine_learning/16S_EC/", myVar,"_model_results_RA_corr/"), 
+                          pattern = paste0(myVar,"_RA_corr_varimp*"), full.names = TRUE)
+  varimps <- lapply(filenames, read.csv, header = FALSE)
+  varimps_full <- varimps %>%
+    reduce(full_join)
+  names(varimps_full) <- c('Predictor', 'VIP', 'Run')
+  varimps_full <- varimps_full %>% 
+    filter(Predictor != "ClimateZ" & Predictor != "clay" & Predictor != "DNA")
+  varimps_full_sum <- varimps_full %>% 
+    group_by(Run) %>% 
+    summarise(feature_count = n())
+  var_range <- range(varimps_full_sum$feature_count)
+  var_range <- data.frame(var_range)
+  var_range <- t(var_range)
+  var_range$indicator <- myVar
+  var_range <- data.frame(var_range)
+  colnames(var_range) <- c("min_vars", "max_vars","indicator")
+  write.table(var_range, "machine_learning/16S_EC/ECs_per_model_range.csv", sep = ",",
+              append = TRUE, row.names = FALSE, col.names = FALSE)
+}
+```
+
+
 ### Figure X
 # Rooted and unrooted dendrogram
 # PCA with biplot showing which metabolisms drive indicators
