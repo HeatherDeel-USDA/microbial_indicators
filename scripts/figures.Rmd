@@ -34,6 +34,7 @@ library(dplyr)
 library(ggrepel)
 library(ggforce)
 library(egg)
+library(magick) 
 
 # function to set the panel size of a multi-panel ggplot object
 set_panel_size <- function (p=NULL, g=ggplotGrob(p), 
@@ -677,61 +678,15 @@ for (myVar in myVars) {
 }
 ```
 
-
 ### Figure X
-# Rooted and unrooted dendrogram
+# Unrooted dendrogram
 # PCA with biplot showing which metabolisms drive indicators
-# Various other figures
 ####### Decide which of the figures in this section make sense to go in the manuscript
-####### I like the idea of one biplot that for each indicator, it shows which level 2 metabolism drives it the most
+####### I like the idea of one biplot that for each indicator, it shows which level 2 metabolism drives it the most - can generate and put in supp materials
 ####### The biplot can perhaps be accompanied by a dendrogram?
-```{r}
-# df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
-# 
-# data <- df %>%
-#   select(-Level2, -Level3) %>%
-#   as.data.frame()
-# 
-# data <- t(data)
-# colnames(data) <- df$Level3
-# 
-# dd <- dist(data, method = "euclidean") 
-# hc <- hclust(dd, method = "ward.D2") #cluster analysis on dissimilarity distances
-# hcd <- as.dendrogram(hc)
-# 
-# # Default plot
-# plot(hcd, type = "rectangle", ylab = "Height") #rooted
-# 
-# plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
-#      no.margin = TRUE)
-# 
-# ### PCA (Dan's)
-# meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
-# ord <- rda(data) #ordination on level 3 enzyme data for each indicator
-# 
-# q <- ordiplot(ord, choices=c(1,2), scaling=3, type='none', plot=F) #what are plot and scaling? not in documentation
-# species <- data.frame(q$species)
-# species$Level2 <- meta$Level2
-# wanted <- goeveg::ordiselect(data, ord, fitlim=0.5)
-# species <- species[wanted,]
-# species$label <- row.names(species)
-# species$label <- gsub("\\[", "(", species$label)
-# species$label <- gsub("\\]", ")", species$label)
-# species$label <-  stringr::str_extract(string = species$label, pattern = "(?<=\\().*(?=\\))")
-# sites <- data.frame(q$sites)
-# 
-# p1 <- ggplot(species) +
-#   geom_point(data=sites, inherit.aes=F, aes(x=PC1, y=PC2)) +
-#   geom_text_repel(data=sites, inherit.aes=F, aes(x=PC1, y=PC2, label=row.names(sites))) +
-#   geom_segment(aes(x=0, y=0, xend=PC1, yend=PC2, color=Level2)) +
-#   #geom_text_repel(aes(x=PC1, y=PC2, label = species$label, color=Level2), size=2) + # I get an error with this line
-#   geom_circle(aes(x0=0, y0=0, r=4)) +
-#   coord_equal() +
-#   theme_bw()
-# p1
-```
 
 ```{r}
+### dendrogram
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
 
 data <- df %>%
@@ -750,10 +705,10 @@ dd <- dist(data, method = "euclidean")
 hc <- hclust(dd, method = "ward.D2")
 hcd <- as.dendrogram(hc)
 
-plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
-     no.margin = TRUE)
+plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6, no.margin = TRUE)
+# manually saved as png to "C:\Users\Heather.Deel\OneDrive - USDA\microbial_indicators\microbial_indicators\microbial_indicators\figures\metabolisms_SHMI\unrooted_dendrogram.png"
 
-
+### ordination of all data with all indicators, driven by pathways
 ord <- metaMDS(data)
 
 q <- ordiplot(ord, choices=c(1,2), scaling=1, type='none') 
@@ -776,61 +731,28 @@ p2 <- ggplot(species) +
                   aes(x=Axis1, y=Axis2, label=row.names(sites))) +
   geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2, color=Level2), 
                arrow = arrow(length = unit(0.1, "cm"))) +
-  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), size=3, segment.color="grey80") +
-  ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
+  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label, color=Level2), size=3, segment.color="grey80", max.overlaps = 20) +
+  #ggforce::geom_circle(aes(x0=0, y0=0, r=1)) +
   coord_equal() +
-  theme_bw()
+  theme_bw() +
+  labs(color = "KO Pathway")
 p2
+
+# read in dendrogram, merge with p2, and save
+dendro <- image_read("figures/metabolisms_SHMI/unrooted_dendrogram.png") %>% 
+  image_ggplot()
+
+dendro_pathways <- ggarrange(dendro, p2, ncol = 2, nrow = 1, labels = c("A","B"))
+dendro_pathways
+
+# ggsave for some reason will only save the dendrogram of dendro_pathways
+# manually save as png at figures/dendro_pathways.png
 ```
 
 ```{r}
-df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
-
-data <- df %>%
-  select(-Enzyme) %>%
-  as.data.frame()
-row.names(data) <- df$Enzyme
-
-data[is.na(data)] <- 0
-data <- t(data)
-data <- data[,colSums(data) > 0]
-#data <- decostand(data, 'range', margin=1)
-data <- decostand(data, 'pa')
-
-dd <- dist(data, method = "euclidean")
-hc <- hclust(dd, method = "ward.D2")
-hcd <- as.dendrogram(hc)
-
-plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6,
-     no.margin = TRUE)
-
-ord <- metaMDS(data)
-
-q <- ordiplot(ord, choices=c(1,2), scaling=1, type='none') 
-species <- data.frame(q$species)
-names(species) <- c('Axis1', 'Axis2')
-wanted <- goeveg::ordiselect(data, ord, fitlim=0.25)
-species <- species[wanted,]
-species$label <- row.names(species)
-sites <- data.frame(q$sites)
-names(sites) <- c('Axis1', 'Axis2')
-
-p3 <- ggplot(species) +
-  geom_point(data=sites, inherit.aes=F, aes(x=Axis1, y=Axis2)) +
-  ggrepel::geom_text_repel(data=sites, inherit.aes=F, 
-                           aes(x=Axis1, y=Axis2, label=row.names(sites))) +
-  geom_segment(aes(x=0, y=0, xend=Axis1, yend=Axis2), color='blue', 
-               arrow = arrow(length = unit(0.1, "cm"))) +
-  ggrepel::geom_text_repel(aes(x=Axis1, y=Axis2, label = species$label), 
-                           size=2, color='blue', max.overlaps=20, segment.color="grey80") +
-  geom_circle(aes(x0=0, y0=0, r=1)) +
-  coord_equal() +
-  theme_bw()
-p3
-
-```
-
-```{r}
+### pcoa of land use, SHMI, and climate combined into one
+### I think I should make one pcoa of just SHMI
+### fig 3 in the manuscript is also already a pcoa with climate and land use
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
 df$Enzyme <- gsub("EC.", "EC:", df$Enzyme)
 
@@ -864,6 +786,7 @@ p4
 
 ### Figure X
 # Grouping enzyme abundances by metabaolism and correlating with SHMI
+####### may need to get rid of metabolic groups that are human related
 ```{r}
 pathways <- read_xlsx("pathways_files/pathways.xlsx", sheet="pathways")
 pathways <- pathways[,1:4]
