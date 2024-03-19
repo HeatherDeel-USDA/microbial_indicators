@@ -420,7 +420,6 @@ ggsave(plot=p_heatmap_leg, "figures/heatmap_dkm/ez_copies_per_species_heatmap2.p
 
 ### Figure X
 # PCOAs using tsne
-####### still need to output EC and taxonomy statistics to a file (if we are keeping this figure)
 ```{r}
 ### EC data PCOA
 P <- readRDS('machine_learning/EC_RA_corr/ml_EC_RA_corr.RDS')
@@ -495,6 +494,13 @@ p_pcoa
 ```{r}
 top_ECs <- readRDS('scripts/top_ECs.RDS')
 
+# merge top_ECs with GIBBs list to add context for talking about in the manuscript
+gibbs <- read.csv("picrust2_files/GIBBs.EC.numbers.csv")
+gibbs$EC <- gsub("EC:","EC.",gibbs$EC)
+top_ECs_gibbs <- top_ECs %>% 
+  left_join(gibbs, by = "EC") %>% 
+  filter(!is.na(Category))
+
 myVars <- c('SOM', 'resp', 'agg_stab', 'water_cap', 'mg', 'mn', 'zn', 'ace', 'activeC', 'ph', 'p', 'k','fe')
 
 for (myVar in myVars) {
@@ -543,6 +549,14 @@ for (myVar in myVars) {
     filter(EC %in% temp.pos$EC)
   gDF.neg <- gDF.neg %>%
     filter(EC %in% temp.neg$EC)
+  
+  # add in gibbs info for context. Assign to new variable for each indicator
+  gDF.pos <- gDF.pos %>% 
+    left_join(gibbs, by = "EC")
+  assign(paste0(myVar,"_gibbs_pos"),gDF.pos)
+  gDF.neg <- gDF.neg %>% 
+    left_join(gibbs, by = "EC")
+  assign(paste0(myVar,"_gibbs_neg"),gDF.neg)
   
   # changing myVar format for cleaner plot titles
   if (myVar == 'resp'){
@@ -593,7 +607,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.pos
   assign(paste0(myVar,"_pos"),p.pos)
-  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=4, width=6)
+  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.pos.png"), device='png', dpi=600, height=4, width=6)
   
   # negative correlation graph
   means <- aggregate(EC.VIP ~ EC, gDF.neg, median)
@@ -607,7 +621,7 @@ for (myVar in myVars) {
     labs(x="", y="", title = myVar)
   p.neg
   assign(paste0(myVar,"_neg"),p.neg)
-  ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
+  #ggsave(paste0("figures/varimps/", myVar, "_RA_corr_varimp.neg.png"), device='png', dpi=600, height=8, width=8)
 }
 
 # positive correlations graph
@@ -620,7 +634,7 @@ p_merged_pos
 
 annotate_figure(p_merged_pos, left = text_grob("Average Variable Importance", rot = 90, vjust = 1, size = 14))
 
-ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
+#ggsave("figures/all_enzyme_varimps_pos.png", device='png', dpi=600, height=6, width=12)
 
 # negative correlations graph
 p_merged_neg <- ggarrange(ACE_neg, ActiveC_neg, AggStab_neg, 
@@ -632,7 +646,7 @@ p_merged_neg
 
 annotate_figure(p_merged_neg, left = text_grob("Average Variable Importance", rot = 90, vjust = 1, size = 14))
 
-ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
+#ggsave("figures/all_enzyme_varimps_neg.png", device='png', dpi=600, height=6, width=12)
 ```
 
 ### Figure X
