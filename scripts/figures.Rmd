@@ -701,11 +701,14 @@ data <- data[,colSums(data) > 0]
 meta <- data.frame(Level2=df$Level2, Level3=df$Level3)
 meta <- meta[meta$Level3 %in% colnames(data),]
 
+rownames(data) <- c("SOM","ActiveC","ACE","Resp","AggStab","WaterCap","pH",
+                     "P","K","Fe","Mg","Mn","Zn")
+
 dd <- dist(data, method = "euclidean")
 hc <- hclust(dd, method = "ward.D2")
 hcd <- as.dendrogram(hc)
 
-plot(ape::as.phylo(hc), type = "unrooted", cex = 0.6, no.margin = TRUE)
+plot(ape::as.phylo(hc), type = "unrooted", cex = 1, no.margin = TRUE)
 # manually saved as png to "C:\Users\Heather.Deel\OneDrive - USDA\microbial_indicators\microbial_indicators\microbial_indicators\figures\metabolisms_SHMI\unrooted_dendrogram.png"
 
 ### ordination of all data with all indicators, driven by pathways
@@ -738,15 +741,10 @@ p2 <- ggplot(species) +
   labs(color = "KO Pathway")
 p2
 
-# read in dendrogram, merge with p2, and save
-dendro <- image_read("figures/metabolisms_SHMI/unrooted_dendrogram.png") %>% 
-  image_ggplot()
+ggsave("figures/biplot.png", device='png', dpi=600, height=4, width=8)
 
-dendro_pathways <- ggarrange(dendro, p2, ncol = 2, nrow = 1, labels = c("A","B"))
-dendro_pathways
+# manually combined dendrogram and biplot in dendro_pathways.pptx due to low quality of dendrogram when merging with p2
 
-# ggsave for some reason will only save the dendrogram of dendro_pathways
-# manually save as png at figures/dendro_pathways.png
 ```
 
 ```{r}
