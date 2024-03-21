@@ -681,10 +681,6 @@ for (myVar in myVars) {
 ### Figure X
 # Unrooted dendrogram
 # PCA with biplot showing which metabolisms drive indicators
-####### Decide which of the figures in this section make sense to go in the manuscript
-####### I like the idea of one biplot that for each indicator, it shows which level 2 metabolism drives it the most - can generate and put in supp materials
-####### The biplot can perhaps be accompanied by a dendrogram?
-
 ```{r}
 ### dendrogram
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="A2:O57")
@@ -709,7 +705,7 @@ hc <- hclust(dd, method = "ward.D2")
 hcd <- as.dendrogram(hc)
 
 plot(ape::as.phylo(hc), type = "unrooted", cex = 1, no.margin = TRUE)
-# manually saved as png to "C:\Users\Heather.Deel\OneDrive - USDA\microbial_indicators\microbial_indicators\microbial_indicators\figures\metabolisms_SHMI\unrooted_dendrogram.png"
+# manually saved as png to "C:\Users\Heather.Deel\OneDrive - USDA\microbial_indicators\microbial_indicators\microbial_indicators\figures\unrooted_dendrogram.png"
 
 ### ordination of all data with all indicators, driven by pathways
 ord <- metaMDS(data)
@@ -747,10 +743,10 @@ ggsave("figures/biplot.png", device='png', dpi=600, height=4, width=8)
 
 ```
 
+### Figure X
+# PCA of SHMI 
+####### Leaving code here for now, but not including it in the manuscript for now
 ```{r}
-### pcoa of land use, SHMI, and climate combined into one
-### I think I should make one pcoa of just SHMI
-### fig 3 in the manuscript is also already a pcoa with climate and land use
 df <- read_xlsx("figures/top_predictors/Summary.xlsx", sheet="All_NZ", range="R2:AE805")
 df$Enzyme <- gsub("EC.", "EC:", df$Enzyme)
 
@@ -773,10 +769,12 @@ sites <- data.frame(q$sites)
 names(sites) <- c('Axis1', 'Axis2')
 
 p4 <- ggplot(sites, aes(x=Axis1, y=Axis2)) +
-  geom_point(aes(shape=meta$Current_Land_Use, fill=meta$ClimateZ, size=meta$SHMI2_bin)) +
+  #geom_point(aes(shape=meta$Current_Land_Use, fill=meta$ClimateZ, size=meta$SHMI2_bin)) +
+  geom_point(aes(color=meta$SHMI2_bin, shape=meta$Current_Land_Use)) +
   #facet_wrap(~ meta$ClimateZ) +
-  scale_shape_manual(values=c(21,22,23,24), labels=c("Annual Cropland","Perennial Cropland","Rangeland")) +
-  guides(fill=guide_legend(override.aes = list(size=4, shape=21))) +  #geom_text_repel(aes(label=row.names(sites))) +
+  #scale_shape_manual(values=c(21,22,23,24), labels=c("Annual Cropland","Perennial Cropland","Rangeland")) +
+  #guides(fill=guide_legend(override.aes = list(size=4, shape=21))) +  
+  #geom_text_repel(aes(label=row.names(sites))) +
   coord_equal() +
   theme_bw()
 p4
