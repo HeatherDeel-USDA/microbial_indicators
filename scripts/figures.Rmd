@@ -35,6 +35,7 @@ library(ggrepel)
 library(ggforce)
 library(egg)
 library(magick) 
+library(forcats)
 
 # function to set the panel size of a multi-panel ggplot object
 set_panel_size <- function (p=NULL, g=ggplotGrob(p), 
@@ -268,7 +269,7 @@ top_TAX <- top_TAX %>%
 
 top_TAX <- top_TAX %>%
   left_join(picrust.select, by=c("study", "OTU_ID")) %>%
-  drop_na() %>%
+  drop_na() %>% 
   select(-study, -OTU_ID, -tax_ID, -species)
 
 top_TAX <- top_TAX %>%
@@ -369,7 +370,6 @@ for (myVar in myVars) {
   gDF["Copies"][gDF["Copies"] == 0] <- NA
   
   # create heatmaps
-  library(forcats)
   p2 <- ggplot(gDF, aes(x = fct_reorder(EC, EC.VIP, .desc=TRUE, .na_rm=FALSE), 
                         y = fct_reorder(Species2, TAX.VIP, .desc=TRUE, .na_rm=FALSE), fill = Copies)) +
     geom_tile(color='grey20') +
