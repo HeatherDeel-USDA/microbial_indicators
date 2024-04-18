@@ -417,6 +417,19 @@ p_heatmap_leg <- annotate_figure(p_heatmap_leg, left = text_grob("Important Taxa
 
 ggsave(plot=p_heatmap_leg, "figures/heatmap_dkm/ez_copies_per_species_heatmap2.png", 
        device='png', dpi=600, height=22, width=17.5)
+
+# remaking figure resized for FRMS poster
+p_heatmap_leg2 <- ggpubr::ggarrange(ace_hm, activeC_hm, agg_stab_hm, fe_hm, k_hm, mg_hm,
+                           mn_hm, p_hm, ph_hm, resp_hm, SOM_hm, water_cap_hm, zn_hm,
+                           nrow = 4, ncol = 4, common.legend = TRUE)
+p_heatmap_leg2
+
+p_heatmap_leg <- annotate_figure(p_heatmap_leg2, left = text_grob("Important Taxa", rot = 90, vjust = 1, size = 14),
+                bottom= text_grob("Important Enzymes", size = 14))
+
+ggsave(plot=p_heatmap_leg2, "figures/heatmap_dkm/ez_copies_per_species_heatmap2_FRMS.png", 
+       device='png', dpi=600, height=18, width=20)
+
 ```
 
 ### Figure X
@@ -969,13 +982,13 @@ plot_list3 <- list(Amino_acid_metabolism, Biosynthesis_secondary_metabolites,
                   Nucleotide_metabolism, Replication_and_repair,Transcription, 
                   Transport_and_catabolism,Xeno_biodegradation_metabolism)
 
-p_sig <- ggpubr::ggarrange(plotlist = plot_list3, nrow = 5, ncol = 4)
+p_sig <- ggpubr::ggarrange(plotlist = plot_list3, nrow = 4, ncol = 5)
 p_sig
 
 annotate_figure(p_sig, left = text_grob("Relative Abundance", rot = 90, vjust = 1, size = 14),
                 bottom = text_grob("SHMI Bin", size = 14))
  
-ggsave("figures/metabolisms_SHMI/SHMI_sig_FRMS.png", device='png', dpi=600, height=11, width=10)
+ggsave("figures/metabolisms_SHMI/SHMI_sig_FRMS.png", device='png', dpi=600, height=9, width=11)
 ```
 
 
