@@ -1,0 +1,311 @@
+---
+title: "PICRUSt2 Data Processing"
+author: Heather Deel & Dan Manter
+date: "2023-08-07"
+output: html_document
+---
+
+### Setup and packages
+```{r setup, include=FALSE}
+library(tidyverse)
+geom_text_repel2 <- function(...) {
+    layer <- ggrepel::geom_text_repel(...)
+    layer$ggrepel <- TRUE
+    class(layer) <- c("ggrepel", class(layer))
+    return(layer)
+}
+
+ggplot_add.ggrepel <- function(object, plot, object_name) {
+    if (any(do.call(c, lapply(plot$layer, function(x) x$ggrepel)))) {
+        warning(
+            "There is more than one ggrepel layers. ",
+            "This may cause overlap of labels"
+        )
+    }
+   # Optionally, one may modify `object` here.
+    NextMethod("ggplot_add")
+}
+```
+
+### Load and format PICRUSt2 data
+# Note - due to size, PICRUSt2 files are not provided
+```{r}
+### Hops.2018
+func <- read.delim('picrust2_files/Hops.2018/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Hops.2018/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../Input/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../Input/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hops2018_all <- merge(data.merged, otu, by = "SampleID")
+hops2018_all <- as.data.frame(hops2018_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hops2018_ml <- hops2018_all[,c(1,95,152:2390)]
+
+saveRDS(hops2018_ml, "../Output/hops2018_ml_EC_RA_corr.RDS")
+
+### Hops.ARS
+func <- read.delim('picrust2_files/Hops.ARS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Hops.ARS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../Input/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../Input/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+hopsARS_all <- merge(data.merged, otu, by = "SampleID")
+hopsARS_all <- as.data.frame(hopsARS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+hopsARS_ml <- hopsARS_all[,c(1,95,152:2390)]
+
+saveRDS(hopsARS_ml, "../Output/hopsARS_ml_EC_RA_corr.RDS")
+
+### NRCS
+func <- read.delim('picrust2_files/NRCS/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/NRCS/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../Input/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../Input/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+NRCS_all <- merge(data.merged, otu, by = "SampleID")
+NRCS_all <- as.data.frame(NRCS_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+NRCS_ml <- NRCS_all[,c(1,95,152:2390)]
+
+saveRDS(NRCS_ml, "../Output/NRCS_ml_EC_RA_corr.RDS")
+
+### Rangeland
+func <- read.delim('picrust2_files/Rangeland/EC/pred_metagenome_contrib.tsv.gz', sep='\t')
+df <- read.delim('picrust2_files/Rangeland/marker_predicted_and_nsti.tsv.gz', sep = '\t')
+
+names(df) <- c("taxon", "genome_16S_count", "metadata_NSTI")
+
+# combine two files
+func <- func %>%
+  full_join(df, by="taxon")
+
+# get other metadata
+data.pred.SHMI <- readRDS('../Input/data.pred.SHMI.RDS')
+
+# read in metadata that includes sampleIDs to merge with data.pred.SHMI
+data.sampleID <- read.delim('../Input/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# move the sample ID column to the front
+data.merged <- data.merged %>% 
+  relocate(SampleID)
+
+# we imported un-normalized counts, so normalizing here
+func$EC_RA_corr <- func$taxon_rel_abun / 100 * func$genome_function_count / func$genome_16S_count
+
+# change column name "function" to "EC"
+colnames(func)[2] <- "EC"
+
+# pool data by sample and function
+otu <- func %>%
+  group_by(sample, EC) %>%
+  summarize(sum=sum(EC_RA_corr))
+otu <- otu %>%
+  spread(key=sample, value=sum)
+otu <- data.frame(otu)
+otu[is.na(otu)] <- 0
+row.names(otu) <- otu$EC
+otu <- otu[,-1]
+
+# transpose the "otu" table
+otu <- t(otu)
+
+# convert matrix to data frame
+otu <- as.data.frame(otu)
+
+# make the sample names a column for merging later
+otu <- tibble::rownames_to_column(otu, "SampleID")
+
+# merge metadata and "otu" table
+Rangeland_all <- merge(data.merged, otu, by = "SampleID")
+Rangeland_all <- as.data.frame(Rangeland_all)
+
+# select columns to be used in ml - SampleID, ECs, and "Overall" CASH rating
+Rangeland_ml <- Rangeland_all[,c(1,95,152:2390)]
+
+saveRDS(Rangeland_ml, "../Output/Rangeland_ml_EC_RA_corr.RDS")
+
+### final formatting of ml_16S object
+hops2018_ml <- readRDS("../Output/hops2018_ml_EC_RA_corr.RDS")
+hopsARS_ml <- readRDS("../Output/hopsARS_ml_EC_RA_corr.RDS")
+NRCS_ml <- readRDS("../Output/NRCS_ml_EC_RA_corr.RDS")
+rangeland_ml <- readRDS("../Output/Rangeland_ml_EC_RA_corr.RDS")
+
+ml_1 <- merge(hops2018_ml, hopsARS_ml, all = TRUE)
+ml_2 <- merge(NRCS_ml, ml_1, all = TRUE)
+ml_all <- merge(rangeland_ml, ml_2, all = TRUE)
+
+# add back in metadata columns
+data.sampleID <- read.delim('../Input/SHAI.Meta.22March2023.q2.reduced.txt', sep = '\t')
+data.pred.SHMI <- readRDS('../Input/data.pred.SHMI.RDS')
+
+# merge metadata files
+data.merged <- merge(data.pred.SHMI, data.sampleID, by = "PLFA_ID", all.x = TRUE)
+
+# merge ml_all2 with data.merged
+ml_all_meta <- merge(ml_all, data.merged, by = c("SampleID","Overall"))
+
+# get rid of duplicate "Overall" column
+#ml_all_meta <- ml_all_meta[c(1,3:2596)]
+#colnames(ml_all_meta)[2539] = "Overall"
+
+# going to assume that NAs are 0 (functions not found in one data set or another)
+# change NAs to 0
+ml_all_meta[is.na(ml_all_meta)] <- 0
+
+# check for any NAs
+sum(is.na(ml_all_meta))
+
+# NRCS 346 duplicated for some reason. One row is all zeros. Get rid of row 315
+#ml_all_meta <- ml_all_meta[c(1:314,316:537),]
+
+# data ready
+saveRDS(ml_all_meta, '../Output/ml_EC_RA_corr.RDS')
+write.csv(ml_all_meta, file='../Input/MISH.data.csv')
+
+# MISH.data.csv slightly formatted and saved as an xlsx externally, used as input in 16S_xgboost.final_manuscript.Rmd
+```
+
+
+
+
+
+
+

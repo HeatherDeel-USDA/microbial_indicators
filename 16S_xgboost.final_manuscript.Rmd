@@ -1,0 +1,775 @@
+---
+title: "XGBoost and Figure Generation"
+output: html_document
+author: Heather Deel & Daniel Manter
+date: "2023-11-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# libraries
+library(caret)
+library(caTools)
+library(doParallel)
+library(dplyr)
+library(rBayesianOptimization)
+library(readxl)
+library(rsample)
+library(rtk)
+library(ParBayesianOptimization)
+library(vegan)
+library(xgboost)
+library(janitor)
+
+# function to set the panel size of a multi-panel ggplot object
+set_panel_size <- function (p=NULL, g=ggplotGrob(p), 
+                            file=NULL, margin = unit(1,"mm"), 
+                            width=unit(4, "cm"), height=unit(4, "cm")) {
+  panels <- grep("panel", g$layout$name)
+  panel_index_w<- unique(g$layout$l[panels])
+  panel_index_h<- unique(g$layout$t[panels])
+  nw <- length(panel_index_w)
+  nh <- length(panel_index_h)
+  
+  if(getRversion() < "3.3.0") {
+    g$widths <- grid:::unit.list(g$widths)
+    g$heights <- grid:::unit.list(g$heights)
+    g$widths[panel_index_w] <-  rep(list(width),  nw)
+    g$heights[panel_index_h] <- rep(list(height), nh)
+  } else {
+    g$widths[panel_index_w] <-  rep(width,  nw)
+    g$heights[panel_index_h] <- rep(height, nh)
+  }
+  if (!is.null(file)) {
+    ggsave(file, g,
+           width = convertWidth(sum(g$widths) + margin, unitTo = "in", valueOnly = TRUE),
+           height = convertHeight(sum(g$heights) + margin, unitTo = "in", valueOnly = TRUE))
+  }
+  invisible(g)  
+}
+```
+
+## XGBoost model
+```{r xgboost}
+myVars <- c('SOM.resid', 'activeC.resid', 'ace.resid', 'resp.resid', 'agg_stab.resid', 'water_cap.resid')
+ml_EC_16S <- read_xlsx('../Input/MISH.data.xlsx', sheet='MISH.data')
+
+for (myVar in myVars) {
+  print(paste0("Variable: ", myVar))
+
+  # get all enzymes
+  nz_all <- ml_EC_16S %>%
+    dplyr::select(grep("EC:", colnames(ml_EC_16S)))
+
+  # select enzymes in >=33% samples
+  nz_rating <- nz_all[,colSums(nz_all > 0, na.rm=T) >= 177] # 33% or more of the samples = 1809 out of 2436
+
+  # scale enzymes between 0 and 1
+  nz_rating <- decostand(nz_rating, 'range', 2)
+
+  # convert dependent variable and enzymes to ratings
+  eq <- ecdf(ml_EC_16S[[myVar]])
+  nz_rating[[myVar]] <- eq(ml_EC_16S[[myVar]])
+  sName <- gsub('.resid', '', myVar)
+  saveRDS(eq, paste0("../Output/ecdf.", sName, ".RDS"))
+  
+  meta <- ml_EC_16S %>%
+    dplyr::select(ClimateZ)
+
+  data <- cbind(nz_rating, meta)
+
+  # final model run on 25 different splits
+  for (myRun in seq(1,25,1)) {
+    print(paste0("Starting run: ", myRun))
+
+    data_split <- initial_split(data, prop=0.8, strata=ClimateZ)
+    train <- training(data_split)
+    test <- testing(data_split)
+
+    Y_train <- as.vector(train[[myVar]])
+    X_train <- train %>% dplyr::select(grep("EC:", colnames(train)))
+
+    Y_test <- as.vector(test[[myVar]])
+    X_test <- test %>% dplyr::select(grep("EC:", colnames(test)))
+
+    # function for Bayesian parameter optimization
+    folds <- KFold(train$ClimateZ, nfolds = 3, stratified = TRUE, seed = 0)
+    obj_func <- function(eta, gamma, max_depth, min_child_weight, lambda, alpha) {
+      param <- list(
+        # Hyper parameters
+        eta = eta,
+        gamma = gamma,
+        max_depth = max_depth,
+        min_child_weight = min_child_weight,
+        lambda = lambda,
+        alpha = alpha,
+        booster = "gbtree",
+        objective = "reg:squaredlogerror",
+        eval_metric = "auc")
+
+      xgbcv <- xgb.cv(params = param,
+                      data = as.matrix(X_train),
+                      label = Y_train,
+                      nround = 100,
+                      folds = folds,
+                      prediction = FALSE,
+                      early_stopping_rounds = 5,
+                      verbose = 0,
+                      maximize = TRUE)
+
+      lst <- list(
+        Score = xgbcv$evaluation_log$test_auc_mean[xgbcv$best_iteration],
+        Pred = xgbcv$best_iteration
+      )
+      return(lst)
+    }
+
+    bounds <- list(
+                   eta = c(0.001, 0.5),
+                   gamma = c(0, 5),
+                   max_depth = c(1L, 250L),
+                   min_child_weight = c(1, 10),
+                   lambda = c(0, 5),
+                   alpha = c(0, 5))
+
+    set.seed(100)
+    cl <- makeCluster(8)
+    registerDoParallel(cl)
+    clusterExport(cl, c('folds','X_train', 'Y_train'))
+    clusterEvalQ(cl, expr= {library(xgboost)})
+    bayes_out <- bayesOpt(FUN = obj_func,
+                          bounds = bounds,
+                          initPoints = 12,
+                          iters.n = 48,
+                          iters.k = 8,
+                          parallel = TRUE,
+                          otherHalting = list(minUtility = 0.1))
+    stopCluster(cl)
+    registerDoSEQ()
+
+    # Combine best params with base params
+    best_par <- getBestPars(bayes_out)
+    opt_params <- list(booster = "gbtree",
+                       objective = "reg:squaredlogerror",
+                       eval_metric = "auc",
+                       eta=best_par$eta,
+                       gamma=best_par$gamma,
+                       max_depth=best_par$max_depth,
+                       min_child_weight=best_par$min_child_weight,
+                       lambda=best_par$lambda,
+                       alpha=best_par$alpha)
+
+    nrounds <- bayes_out$scoreSummary$Pred[[which.max(bayes_out$scoreSummary$Score)]]
+
+    write.table(cbind(myRun, opt_params, nrounds),
+            file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_params.csv"),
+            col.names = TRUE, row.names = TRUE,
+            append = TRUE, sep = ",")
+
+    # final model
+    mdl <- xgboost(data = as.matrix(X_train),
+                   label = Y_train,
+                   params = opt_params,
+                   early_stopping_rounds = 5,
+                   nrounds = nrounds,
+                   verbose = 1,
+                   maximize=TRUE)
+
+    importance_matrix = xgb.importance(colnames(X_train), model = mdl)
+    #xgb.plot.importance(importance_matrix = importance_matrix[1:10])
+
+    write.table(cbind(myRun, importance_matrix),
+            file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_predictors.csv"),
+            col.names = TRUE, row.names = TRUE,
+            append = TRUE, sep = ",")
+
+    pred_full = predict(mdl, as.matrix(X_test))
+    cf.pvso <- as.data.frame(cbind(Y_test, pred_full))
+    names(cf.pvso) <- c('obs', 'pred')
+    write.table(cbind(myRun, cf.pvso),
+               file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_pred.csv"),
+               col.names = TRUE, row.names = TRUE,
+               append = TRUE, sep = ",")
+
+    # save R^2 and p-values to a file
+    res.lm <- lm(pred ~ obs, data = cf.pvso)
+    print(summary(res.lm))
+    plot(cf.pvso$obs, cf.pvso$pred)
+    adj_r2_val <- summary(res.lm)$adj.r.squared
+    p_val <- summary(res.lm)$coef[2,4]
+    RMSE <- caret::RMSE(Y_test, cf.pvso$pred)
+    write.table(cbind(myRun, adj_r2_val, p_val, RMSE),
+                file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_stats.csv"),
+                col.names = TRUE, row.names = TRUE,
+                append = TRUE, sep = ",")
+
+    df <- data %>%
+        dplyr::select(-ClimateZ)
+
+    cor <- df %>%
+        corrr::correlate(method="spearman", use="all.obs") %>%
+        corrr::focus(myVar)
+
+    write.table(cbind(myRun, cor),
+          file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_spearman_corr.csv"),
+          col.names = TRUE, row.names = TRUE,
+          append = TRUE, sep = ",")
+
+    cor <- df %>%
+        corrr::correlate(method="pearson", use="all.obs") %>%
+        corrr::focus(myVar)
+
+    write.table(cbind(myRun, cor),
+          file = paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_pearson_corr.csv"),
+          col.names = TRUE, row.names = TRUE,
+          append = TRUE, sep = ",")
+  }
+}
+
+```
+
+# Process results and figure generation
+```{r Figure 1}
+#library(rtk)
+ml_EC_16S <- read_xlsx('../Input/MISH.data.xlsx', sheet='MISH.data')
+
+nz_all <- ml_EC_16S %>%
+  dplyr::select(Sample.ID, grep("EC:", colnames(ml_EC_16S)))
+
+nz_all <- data.frame(nz_all)
+row.names(nz_all) <- nz_all$Sample.ID
+nz_all <- nz_all[names(nz_all) != 'Sample.ID']
+nz_all <- nz_all[, which(colSums(nz_all) != 0)]
+
+tax_all <- read_xlsx('../Input/Tax.data.xlsx', sheet='Tax.data')
+
+tax_all <- data.frame(tax_all)
+row.names(tax_all) <- tax_all$Sample.ID
+tax_all <- tax_all[names(tax_all) != 'Sample.ID']
+tax_all <- tax_all[, which(colSums(tax_all) != 0)]
+
+png("../Output/Figures/Figure1A.png", 
+    width = 540, height = 540,
+    units = "px", pointsize = 12, res=120)
+taxdf <- collectors.curve(t(tax_all),
+                 col="#FC8D62",
+                 xlab = "No. of Samples", 
+                 ylab = "No. of Species / Enzymes",
+                 ylim=c(0,8000),
+                 bin=1,
+                 add = FALSE) 
+
+nzdf <- collectors.curve(t(nz_all), 
+                 col="#66C2A5",
+                 xlab = "No. of Samples", 
+                 ylab = "No. of Species / Enzymes",
+                 ylim=c(0,8000),
+                 bin=1,
+                 add = TRUE) 
+abline(h=6396, lty=2, col='black')
+abline(h=2311, lty=2, col='black')
+dev.off()
+
+taxdf
+nzdf
+
+# Detection
+nz_all <- decostand(nz_all, 'range', 1)
+
+fDetect <- function(x, df) {
+  new <- df %>%
+    mutate(across(where(is.numeric), .fns = ~case_when(. > as.numeric(x) ~ 1, . <= as.numeric(x) ~ 0))) %>%
+    summarise(across(where(is.numeric), ~ sum(. != 0))) %>%
+    t()
+  new <- data.frame(new)
+  names(new) <- 'Count'
+  return(new)
+}
+
+nz.prev <- fDetect('0', nz_all)
+nz.prev$Feature <- row.names(nz.prev)
+nz.prev$Prop <- nz.prev$Count / 536
+
+nz.prev <- nz.prev %>%
+  count(cut(Prop, breaks=seq(0, 1, 0.2), include.lowest = FALSE))
+names(nz.prev) <- c("Bin", "count")
+nz.prev$percent <- round((nz.prev$count / 2433),  3)
+nz.prev$Source <- "Enzyme"
+
+tax.prev <- fDetect('0', tax_all)
+tax.prev$Feature <- row.names(tax.prev)
+tax.prev$Prop <- tax.prev$Count / 536
+
+tax.prev <- tax.prev %>%
+  count(cut(Prop, breaks=seq(0, 1, 0.2), include.lowest = FALSE))
+names(tax.prev) <- c("Bin", "count")
+tax.prev$percent <- round((tax.prev$count / 6733), 3)
+tax.prev$Source <- "Species"
+
+gDF <- rbind(nz.prev, tax.prev)
+
+p <- ggplot(gDF, aes(x=Bin, y=percent, fill=Source)) +
+  geom_bar(stat='identity', position='dodge') +
+  geom_text(aes(label=count), position = position_dodge(width = .9), vjust = -1, size=3) +
+  scale_fill_brewer(palette='Set2') +
+  scale_y_continuous(limits=c(0,1), n.breaks=6) +
+  labs(x="Proportion of Samples (binned)", y="Proportion of Species / Enzymes") +
+  theme_bw()
+p
+p <- set_panel_size(p, height=unit(2.5, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.1B.png"), p, dpi=300, height=4, width=6)
+```
+
+```{r Summarize R2 - Table 2}
+# prediction statistics
+myVars <- c('SOM.resid', 'activeC.resid', 'ace.resid', 'resp.resid', 'agg_stab.resid', 'water_cap.resid')
+final <- data.frame(Index = numeric(), myRun = numeric(), adj_r2 = numeric(), 
+                    p_val = numeric(), RMSE = numeric, myVar = character())
+
+for (myVar in myVars) {
+  df <- read.csv(paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_stats.csv"), row.names=NULL)
+  df <- df[df$row.names != 'myRun',]
+  names(df) <- c('Index', 'myRun', 'adj_r2', 'p_val', 'RMSE')
+  df$myVar <- myVar
+  final <- rbind(final, df)
+}
+  
+final
+final$myVar <- factor(final$myVar)
+final$myVar <- forcats::fct_recode(final$myVar, 
+                                   "ACE Rating"="ace.resid", 
+                                   "ActiveC Rating"="activeC.resid", 
+                                   "AggStab Rating"="agg_stab.resid", 
+                                   "Resp Rating"="resp.resid",
+                                   "SOM Rating"="SOM.resid",
+                                   "WaterCap Rating"="water_cap.resid"
+                                   )
+final$adj_r2 <- as.numeric(final$adj_r2)
+
+# median R2's for each indicator
+mean <- final %>%
+  group_by(myVar) %>%
+  summarize(r2.mean = mean(adj_r2),
+            r2.sd = sd(adj_r2),
+            RMSE.mean = mean(RMSE),
+            RMSE.sd = sd(RMSE))
+mean
+```
+
+```{r Figure 2}
+# predictors - gain
+myVars <- c('SOM.resid', 'activeC.resid', 'ace.resid', 'resp.resid', 'agg_stab.resid', 'water_cap.resid')
+final <- data.frame(Index = numeric(), myRun = numeric(), Feature=character(), Gain = numeric(), 
+                    Cover = numeric(), Frequency = numeric(), myVar = character())
+
+for (myVar in myVars) {
+  df <- read.csv(paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_predictors.csv"), row.names=NULL)
+  df <- df[df$row.names != 'myRun',]
+  names(df) <- c('Index', 'myRun', 'Feature', 'Gain', 'Cover', 'Frequency')
+  df$myVar <- myVar
+  final <- rbind(final, df)
+}
+
+final
+final$myVar <- factor(final$myVar)
+final$Feature <- factor(final$Feature)
+final$Gain <- as.numeric(final$Gain)
+
+# final <- final %>%
+#   group_by(myVar, myRun) %>%
+#   mutate(my_ranks = order(Gain, decreasing=TRUE)) %>%
+#   mutate(n=max(my_ranks)) %>%
+#   mutate(Gain = Gain / max(Gain))
+#write.csv(final, file='../Output/Tabular/final.csv', row.names=FALSE)
+
+count <- final %>%
+  group_by(myVar, Feature) %>%
+  summarize(count=n())
+write.csv(count, file='../Output/Tabular/No_models.csv', row.names=FALSE)
+
+# mean & SD features in each model
+final %>%
+  group_by(myVar, myRun) %>%
+  summarize(count=n()) %>%
+  ungroup() %>%
+  group_by(myVar) %>%
+  summarize(mean=mean(count),
+            sd = sd(count))
+final
+
+predictors <- final %>%
+  group_by(myVar, Feature) %>%
+  mutate(n = n()) %>%
+  filter(n >= 13) %>%
+  summarize(Gain = mean(Gain, na.rm=T)) 
+write.csv(predictors, file='../Output/Tabular/predictors.csv', row.names=FALSE)
+
+predictors.50 <- predictors %>%
+  group_by(myVar) %>%
+  slice_max(order_by=Gain, n=50) 
+
+predictors.50$myVar2 <- factor(predictors.50$myVar)
+predictors.50$myVar2 <- forcats::fct_recode(predictors.50$myVar2, 
+                                   "ACE Rating"="ace.resid", 
+                                   "ActiveC Rating"="activeC.resid", 
+                                   "AggStab Rating"="agg_stab.resid", 
+                                   "Resp Rating"="resp.resid",
+                                   "SOM Rating"="SOM.resid",
+                                   "WaterCap Rating"="water_cap.resid"
+                                   )
+write.csv(predictors.50, file='../Output/Tabular/predictors.50.csv', row.names=FALSE)
+
+predictors.10 <- predictors.50 %>%
+  group_by(myVar) %>%
+  slice_max(order_by=Gain, n=10) 
+
+ p <- ggplot(predictors.10, aes(x=tidytext::reorder_within(Feature, rev(Gain), myVar2), y=Gain, fill=myVar2)) +
+   geom_bar(stat='identity') +
+   facet_wrap(vars(myVar2), scales='free') +
+   upstartr::scale_x_reordered() +
+   scale_fill_brewer(palette='Set2', guide=NULL) +
+   labs(x='', y='Average Gain', fill='Indicator') +
+   theme_bw() +
+   theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
+ p
+ 
+ p <- set_panel_size(p, height=unit(2, "in"), width=unit(2, "in"))
+ ggsave(file=paste0("../Output/Figures/Figure.2.png"), p, dpi=300, height=7, width=8)
+```
+
+```{r Figure 3}
+### need to double check range on this - not the same as what is currently in the manuscript
+
+df <- read_xlsx('../Input/Enzyme_Pathway.xlsx', sheet='Sheet1', range = "J4:P19")
+df <- data.frame(df)
+df <- tibble::column_to_rownames(df, var = "Pathway")
+
+library(IgAScores)
+df_RA <- relabund(df)
+df_t <- t(df_RA)
+df_t <- data.frame(df_t)
+names(df_t) <- rownames(df_RA)
+df_t <- tibble::rownames_to_column(df_t, var = "indicator")
+library(reshape2)
+df_long <- melt(df_t, id.vars = "indicator", variable.name = "pathway")
+
+library(RColorBrewer)
+colorCount = length(unique(df_long$pathway))
+getPalette = colorRampPalette(brewer.pal(9, "Set1"))(colorCount)
+
+p <- ggplot(df_long, aes(x = indicator, y = value, fill = pathway)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.6)) +
+  labs(x = "", y = "No. of Enzymes", fill = "Pathway") +
+  scale_x_discrete(labels = c("ACE Rating","ActiveC Rating", "AggStab Rating", "Resp Rating", "SOM Rating", "WaterCap Rating")) +
+  scale_fill_manual(values = getPalette)
+p
+
+p <- set_panel_size(p, height=unit(3, "in"), width=unit(2.5, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.3.png"), p, dpi=300, height=5, width=6.5)
+```
+
+```{r Spearman correlations}
+# predictors - spearman
+myVars <- c('SOM.resid', 'activeC.resid', 'ace.resid', 'resp.resid', 'agg_stab.resid', 'water_cap.resid')
+final <- data.frame(Index = numeric(), myRun = numeric(), Feature=character(), Spearman = numeric(), myVar = character())
+
+for (myVar in myVars) {
+  df <- read.csv(paste0("../Output/xgboost/", myVar, "_EC_RA_corr_opt_spearman.csv"), row.names=NULL)
+  df <- df[df$row.names != 'myRun',]
+  names(df) <- c('Index', 'myRun', 'Feature', 'Spearman')
+  df$myVar <- myVar
+  final <- rbind(final, df)
+}
+
+final
+final$myVar <- factor(final$myVar)
+final$Spearman <- as.numeric(final$Spearman)
+
+corr <- final %>%
+  group_by(myVar, Feature) %>%
+  summarize(Spearman=mean(Spearman))
+
+#corr2 <- corr
+corr$myVar2 <- factor(corr$myVar)
+corr$myVar2 <- forcats::fct_recode(corr$myVar2, 
+                                   "ACE Rating"="ace.resid", 
+                                   "ActiveC Rating"="activeC.resid", 
+                                   "AggStab Rating"="agg_stab.resid", 
+                                   "Resp Rating"="resp.resid",
+                                   "SOM Rating"="SOM.resid",
+                                   "WaterCap Rating"="water_cap.resid"
+                                   )
+
+predictors.50 <- read.csv(file='../Output/Tabular/predictors.50.csv')
+
+corr.50 <- predictors.50 %>%
+  left_join(corr, by=c('myVar', 'myVar2', 'Feature'))
+write.csv(corr.50, '../Output/Tabular/corr.50.csv', row.names=FALSE)
+
+```
+
+```{r Figure 4}
+# read in predictors
+corr.50 <- read.csv(file='../Output/Tabular/corr.50.csv')
+
+# get enzyme relative abundances and standardize
+ml_EC_16S <- read_xlsx('../Input/MISH.data.xlsx', sheet='MISH.data')
+enzymes <- ml_EC_16S %>%
+    dplyr::select(any_of(corr.50$Feature))
+
+ min <- enzymes %>%
+   summarise(across(where(is.numeric), ~min(.x, na.rm=TRUE))) %>%
+   t()
+ max<- enzymes %>%
+   summarise(across(where(is.numeric), ~max(.x, na.rm=TRUE))) %>%
+   t()
+ samples <- enzymes %>%
+   summarise(across(where(is.numeric), ~ sum(.x != 0))) %>%
+   t()
+ ranges <- data.frame(cbind(min, max, samples))
+ names(ranges) <- c('min', 'max', 'samples')
+ write.csv(ranges, '../Output/Tabular/ranges.csv')
+
+ # convert to rating
+enzymes <- decostand(enzymes, 'range', 2)
+  
+### plot by bin
+myVars <- c('SOM.resid', 'activeC.resid', 'ace.resid', 'resp.resid', 'agg_stab.resid', 'water_cap.resid')
+final <- data.frame('SampleID' = character(), 'State' = character(), 'ClimateZ'=character(),
+                    'CUrrent_Land_Use' = character(), 'Cover_Type' = character(),
+                    'SHMI_bin' = character(), 'Orignial' = numeric(), 'NZ.wMean'=numeric(), 'NZ.rating'=numeric(),
+                    'myVar' = character(), 'Indicator.rating' = numeric(), 
+                    'Indicator.cut' = character(), 'Indicator.bin' = character())
+for (myVar in myVars) {
+  pos.std <- corr.50 %>%
+     dplyr::filter(Spearman > 0)  %>%
+     dplyr::filter(myVar == (!!myVar))
+
+  wanted.pos <- as.vector(pos.std[pos.std$myVar == myVar, 'Feature'])
+  nz.pos <- enzymes %>%
+    dplyr::select(any_of(wanted.pos))
+  
+  neg.std <- corr.50 %>%
+     dplyr::filter(Spearman < 0)  %>%
+     dplyr::filter(myVar == (!!myVar)) 
+
+  # get enzyme realtive abundances and standardize
+  wanted.neg <- as.vector(neg.std[neg.std$myVar == myVar, 'Feature'])
+  nz.neg <- enzymes %>%
+    dplyr::select(any_of(wanted.neg))
+
+  nz.neg <- 1 - nz.neg
+  
+  nz <- cbind(nz.pos, nz.neg)
+  gains <- c(pos.std$Gain, neg.std$Gain)
+  wMean <- as.data.frame(matrixStats::rowWeightedMeans(as.matrix(nz), w=gains))
+  names(wMean) <- 'wMean'
+
+  eq <- ecdf(wMean$wMean)
+  sName <- gsub('.resid', '', myVar)
+  saveRDS(eq, paste0("../Output/ecdf.MISH.", sName, ".RDS"))
+
+  wMean$rating <- eq(wMean$wMean) * 100
+
+  if (!endsWith(myVar, '.resid')) {
+    myName = paste0(myVar, '.resid')
+  } else {
+    myName = myVar
+  }
+
+  df <- cbind(ml_EC_16S[,c('Sample.ID', 'State', 'ClimateZ', 'Current_Land_Use', 'Cover_Type', 'SHMI.bin', myName)], wMean)
+  df$myVar <- myVar
+  eq <- ecdf(df[[myName]])
+  
+  df$indicator.rating <- eq(df[[myName]])
+  df$indicator.cut <- cut(df$indicator.rating, breaks=c(-Inf, 0.2, 0.4, 0.6, 0.8, Inf))
+  df <- df %>%
+    mutate(indicator.bin = case_when(indicator.cut == "(-Inf,0.2]" ~ "very low",
+                                     indicator.cut == "(0.2,0.4]" ~ "low",
+                                     indicator.cut == "(0.4,0.6]" ~ "medium",
+                                     indicator.cut == "(0.6,0.8]" ~ "high",
+                                     indicator.cut == "(0.8, Inf]" ~ "very high"))
+
+  names(df) <- c('Sample.ID', 'State', 'ClimateZ', 'Current_Land_Use', 'Cover_Type', 'SHMI.bin', 'Orginal', 'NZ.wMean', 'NZ.rating', 
+                 'myVar', 'Indicator.rating', 'Indicator.cut', 'Indicator.bin')
+  final <- rbind(final, df)
+}
+
+final$myVar <- factor(final$myVar)
+final$myVar <- forcats::fct_recode(final$myVar,
+                                   "ACE Rating"="ace.resid",
+                                   "ActiveC Rating"="activeC.resid",
+                                   "AggStab Rating"="agg_stab.resid",
+                                   "Resp Rating"="resp.resid",
+                                   "SOM Rating"="SOM.resid",
+                                   "WaterCap Rating"="water_cap.resid"
+                                  )
+
+final$Indicator.bin <- factor(final$Indicator.bin, levels=c("very low", "low", "medium", "high", "very high"))
+my_comparisons <- list( c("very low", "low"), c("low", "medium"), c("medium", "high"), c("high", "very high") )
+p <- ggplot(final, aes(x=Indicator.bin, y=NZ.rating)) +
+  facet_wrap(vars(myVar), scales='free') +
+  geom_boxplot(aes(fill=myVar)) +
+  geom_point(position=position_jitter(height=0, width=0.1), shape=21, aes(fill=myVar), color='black', alpha=0.5) +
+  ggpubr::stat_compare_means(aes(method="wilcox.test", label = after_stat(p.format)), comparisons=my_comparisons, size=2.5, p.adjust="fdr") +  
+  ggpubr::stat_compare_means(label.y=155, size=2.5, hjust=0) +
+  scale_fill_brewer(palette='Set2', guide=NULL) +
+  labs(x='SEMWISE Indicator Bin', y='MISH Indicator Rating', fill='Indicator') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  ylim(0,160)
+p
+
+p <- set_panel_size(p, height=unit(2, "in"), width=unit(2, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.4.png"), p, dpi=300, height=6, width=8)
+
+
+dfinal <- final %>%
+  nest_by(myVar) %>%
+  mutate(fit = list(lm(Indicator.rating ~ NZ.rating, data=data))) %>%
+  reframe(broom::glance(fit))
+dfinal
+```
+
+```{r Figure 5}
+corr.50 <- read.csv(file='../Output/Tabular/corr.50.csv')
+
+# need to get only the top predictor if matches multiple indicators
+corr.50 <- corr.50 %>%
+  group_by(Feature) %>%
+  slice_max(order_by=Gain, n=1) 
+
+# get enzyme relative abundances and standardize
+ml_EC_16S <- read_xlsx('../Input/MISH.data.xlsx', sheet='MISH.data')
+enzymes <- ml_EC_16S %>%
+    dplyr::select(any_of(corr.50$Feature))
+
+ # normalize to min max
+enzymes <- decostand(enzymes, 'range', 2)
+
+pos <- corr.50 %>%
+   filter(Spearman > 0)
+
+# get enzyme relative abundances and standardize
+wanted.pos <-pos$Feature
+nz.pos <- enzymes %>%
+  dplyr::select(any_of(wanted.pos))
+
+neg <- corr.50 %>%
+  filter(Spearman < 0)
+
+# get enzyme realtive abundances and standardize
+wanted.neg <- neg$Feature
+nz.neg <- enzymes %>%
+  dplyr::select(any_of(wanted.neg))
+
+nz.neg <- 1 - nz.neg
+
+nz <- cbind(nz.pos, nz.neg)
+gains <- c(pos$Gain, neg$Gain) 
+wMean <- as.data.frame(matrixStats::rowWeightedMeans(as.matrix(nz), w=gains))
+names(wMean) <- 'wMean'
+
+eq <- ecdf(wMean$wMean)
+saveRDS(eq, file=paste0("../Output/ecdf.MISH.All.RDS"))
+
+wMean$rating <- eq(wMean$wMean) * 100
+
+df <- cbind(ml_EC_16S[,c('Sample.ID', 'State', 'ClimateZ', 'Current_Land_Use', 'Cover_Type', 'SHMI.rating', 'SHMI.bin', 'SEMWISE.rating', 'SEMWISE.bin')], wMean)
+write.csv(df, file="../Output/Tabular/MISH_overall.csv")
+
+
+df$SEMWISE.bin <- factor(df$SEMWISE.bin, levels=c("very low", "low", "medium", "high", "very high"))
+my_comparisons <- list( c("very low", "low"), c("low", "medium"), c("medium", "high"), c("high", "very high") )
+p <- ggplot(df, aes(x=SEMWISE.bin, y=rating)) +
+  geom_boxplot(fill='grey') +
+  geom_point(aes(fill=Current_Land_Use), position=position_jitter(height=0, width=0.1), shape=21, color='black', alpha=0.75) +
+  ggpubr::stat_compare_means(aes(method="wilcox.test", label = after_stat(p.format)), comparisons=my_comparisons, size=4, p.adjust="fdr") +  
+  ggpubr::stat_compare_means(label.y=150, size=4, hjust=0) +
+  labs(x='SEMWISE Rating', y='MISH Overall Rating', fill = "Current Land Use") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1, size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12)) +
+  scale_fill_discrete(labels = c("Cropland, Annual", "Cropland, Perennial", "Rangeland"))
+  ylim(0,160)
+p
+
+#p <- set_panel_size(p, height=unit(2, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.5A.png"), p, dpi=300, height=4, width=6)
+
+df$SHMI.bin <- factor(df$SHMI.bin, levels=c("very low", "low", "medium", "high", "very high"))
+my_comparisons <- list( c("very low", "low"), c("low", "medium"), c("medium", "high"), c("high", "very high") )
+p <- ggplot(df, aes(x=SHMI.bin, y=rating)) +
+  geom_boxplot(fill='grey') +
+  geom_point(aes(fill=Current_Land_Use), position=position_jitter(height=0, width=0.1), shape=21, color='black', alpha=0.75) +
+  ggpubr::stat_compare_means(aes(method="wilcox.test", label = after_stat(p.format)), comparisons=my_comparisons, size=4, p.adjust="fdr") +  
+  ggpubr::stat_compare_means(label.y=150, size=4, hjust=0) +
+  labs(x='SHMI Rating', y='MISH Overall Rating', fill = "Current Land Use") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust=1, size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12)) +
+  scale_fill_discrete(labels = c("Cropland, Annual", "Cropland, Perennial", "Rangeland"))
+  ylim(0,160)
+p
+
+#p <- set_panel_size(p, height=unit(2, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.5B.png"), p, dpi=300, height=4, width=6)
+
+fit = lm(SHMI.rating ~ rating, data=df)
+broom::glance(fit)
+
+fit = lm(SEMWISE.rating ~ rating, data=df)
+broom::glance(fit)
+
+length(unique(names(nz)))
+```
+
+```{r Figure S1}
+ml_EC_16S <- read_xlsx('../Input/MISH.data.xlsx', sheet='MISH.data')
+
+# select a single climate zone
+gDF <- ml_EC_16S[ml_EC_16S$ClimateZ == "Cfa",]
+
+# residuals for single climate zone
+p <- ggplot(gDF, aes(x=clay.tr, y=SOM.pred)) +
+  geom_line() +
+  geom_point(aes(x=clay.tr, y=SOM.tr)) +
+  theme_bw() +
+  labs(x = "Clay", y="Indicator")
+p
+
+p <- set_panel_size(p, height=unit(2, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.S1A.png"), p, dpi=300, height=3, width=4)
+
+# residual for all climate zones
+p <- ggplot(ml_EC_16S, aes(x=ace.resid)) +
+  geom_histogram(aes(y =..density..), fill="grey", color="black") +
+  stat_function(fun = dnorm, args = list(mean = mean(ml_EC_16S$ace.resid), sd = sd(ml_EC_16S$ace.resid))) +
+  theme_bw() +
+  labs(y = "Density", x="Indicator")
+p
+
+p <- set_panel_size(p, height=unit(2, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.S1B.png"), p, dpi=300, height=3, width=4)
+
+eq <- ecdf(ml_EC_16S$ace.resid)
+X <- seq(-2,2,0.1)
+Y <- eq(X)
+gDF <- data.frame(x=X, y=Y)
+
+p <- ggplot(gDF, aes(x=x, y=y)) +
+  geom_line() +
+  theme_bw() +
+  labs(x = "Indicator", y="Rating")
+p
+p <- set_panel_size(p, height=unit(2, "in"), width=unit(3, "in"))
+ggsave(file=paste0("../Output/Figures/Figure.S1C.png"), p, dpi=300, height=3, width=4)
+```
+
+# Figure S2 made in excel sheet called No_models.xlsx
+# Figure S3 made in excel sheet called Enzyme_Number.xlsx
